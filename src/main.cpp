@@ -242,7 +242,8 @@ int main(int argc, char* argv[]) {
 	if (!replayPath.empty())
 		g_replayPath = replayPath;
 
-	cfg.sendMetrics = false;
+	// wandb logging only when WANDB_API_KEY is present (avoids hangs without a key)
+	cfg.sendMetrics = std::getenv("WANDB_API_KEY") != nullptr;
 
 	RG_LOG(RG_DIVIDER);
 	RG_LOG("=== R3maJ v1 ===");
