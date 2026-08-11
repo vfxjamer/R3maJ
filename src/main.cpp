@@ -166,12 +166,38 @@ void StepCallback(Learner* learner, const std::vector<GameState>& states, Report
 	bool expensive = (rand() % 4) == 0;
 	for (auto& state : states) {
 		if (expensive) {
+			const BallState& ball = state.ball;
+			report.AddAvg("Ball/Height", ball.pos.z);
+			report.AddAvg("Ball/Speed", ball.vel.Length());
+			report.AddAvg("Ball/AngularSpeed", ball.angVel.Length());
+			report.AddAvg("Game/GoalScored", state.goalScored ? 1 : 0);
+			report.AddAvg("Game/LastTouchDelta", state.deltaTime);
+
 			for (auto& player : state.players) {
+				float ownGoalY = (player.team == Team::BLUE) ? -5120.f : 5120.f;
+				bool onWall = (std::abs(player.pos.x) > 3500.f && player.pos.z > 400.f)
+						   || (std::abs(player.pos.y) > 4900.f && player.pos.z > 400.f);
+
 				report.AddAvg("Player/Speed", player.vel.Length());
+				report.AddAvg("Player/Height", player.pos.z);
 				report.AddAvg("Player/Boost", player.boost);
 				report.AddAvg("Player/Airborne", !player.isOnGround);
 				report.AddAvg("Player/BallTouch", player.ballTouchedStep);
 				report.AddAvg("Player/DistToBall", (player.pos - state.ball.pos).Length());
+				report.AddAvg("Player/DistToOwnGoal", (player.pos - Vec(0, ownGoalY, 0)).Length());
+				report.AddAvg("Player/Supersonic", player.isSupersonic);
+				report.AddAvg("Player/Flipping", (player.isFlipping || player.hasFlipped) ? 1 : 0);
+				report.AddAvg("Player/HasDoubleJumped", player.hasDoubleJumped);
+				report.AddAvg("Player/Jumping", (player.hasJumped || player.isJumping) ? 1 : 0);
+				report.AddAvg("Player/AirTime", player.airTime);
+				report.AddAvg("Player/TimeSpentBoosting", player.timeSpentBoosting);
+				report.AddAvg("Player/OnWall", onWall ? 1 : 0);
+				report.AddAvg("Events/Goal", player.eventState.goal ? 1 : 0);
+				report.AddAvg("Events/Save", player.eventState.save ? 1 : 0);
+				report.AddAvg("Events/Shot", player.eventState.shot ? 1 : 0);
+				report.AddAvg("Events/Bump", player.eventState.bump ? 1 : 0);
+				report.AddAvg("Events/Demo", player.eventState.demo ? 1 : 0);
+				report.AddAvg("Events/Demoed", player.eventState.demoed ? 1 : 0);
 			}
 		}
 	}
