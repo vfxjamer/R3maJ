@@ -73,8 +73,8 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
 	ppo.tsPerItr = batch;
 	ppo.batchSize = batch;
 	ppo.miniBatchSize = batch / 10;
-	ppo.epochs = 15;
-	ppo.gaeLambda = 0.95f;
+	ppo.epochs = 5;
+	ppo.gaeLambda = 0.99f;
 	ppo.gaeGamma = p.gamma;
 	ppo.entropyScale = p.entropyScale;
 	ppo.policyLR = p.policyLR;
