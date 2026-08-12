@@ -49,10 +49,10 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
 	GGL::LearnerConfig cfg = {};
 
 	// Batch scaling: 100k -> 200k -> 300k -> 400k (phase 0..3)
-	static const int64_t SCALED_BATCH[4] = { 100'000, 200'000, 300'000, 400'000 };
+	static const int64_t SCALED_BATCH[4] = { 50'000, 150'000, 300'000, 400'000 };
 	const int64_t batch = SCALED_BATCH[RS_CLAMP(phaseIdx, 0, 3)];
 
-	cfg.numGames = 96;
+	cfg.numGames = 164;
 	cfg.tickSkip = 8;
 	cfg.actionDelay = 2;
 	cfg.deviceType = GGL::LearnerDeviceType::CPU;
