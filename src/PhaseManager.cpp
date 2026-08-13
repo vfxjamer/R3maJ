@@ -9,11 +9,11 @@ PhaseManager::PhaseManager() {
 		.ang_vel_w = 0.005f,
 		.touch_grass_w = 0.005f,
 		.goal_w = 10.f,
-		.win_prob_w = 10.f,
+		.win_prob_w = 15.f,
 		.goal_dist_w = 10.f,
 		.goal_speed_bonus_w = 2.5f,
-		.touch_height_w = 3.f,
-		.touch_accel_w = 0.5f,
+		.touch_height_w = 4.f,
+		.touch_accel_w = 1.f,
 		.flip_reset_w = 10.f,
 		.demo_w = 8.f,
 		.opponent_punish_w = 1.f,
@@ -73,7 +73,7 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
 	ppo.tsPerItr = batch;
 	ppo.batchSize = batch;
 	ppo.miniBatchSize = batch / 10;
-	ppo.epochs = 5;
+	ppo.epochs = 15;
 	ppo.gaeLambda = 0.99f;
 	ppo.gaeGamma = p.gamma;
 	ppo.entropyScale = p.entropyScale;
