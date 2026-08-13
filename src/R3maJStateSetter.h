@@ -1,4 +1,5 @@
-﻿#pragma once
+#include <memory>
+#pragma once
 #include <vector>
 #include <cstdint>
 #include <string>
@@ -32,9 +33,8 @@ public:
 
 	virtual void ResetArena(Arena* arena) override;
 
-private:
-	std::vector<ReplayFrame> _replayFrames;
-	std::vector<float> _replayCumWeights;
+	static std::shared_ptr<std::vector<ReplayFrame>> _sharedReplayFrames;
+	static std::shared_ptr<std::vector<float>> _sharedReplayCumWeights;
 
 	bool _LoadReplays(const std::string& path);
 	int _SampleReplayFrame() const;
