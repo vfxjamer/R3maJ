@@ -1,20 +1,30 @@
-#include <memory>
 #pragma once
-#include <vector>
-#include <cstdint>
-#include <string>
+
 #include <RLGymCPP/StateSetters/StateSetter.h>
+#include <RLGymCPP/Framework.h>
+
+#include <vector>
+#include <string>
+#include <memory>
+#include <mutex>
 
 using namespace RLGC;
 
 struct ReplayFrame {
-	Vec ballPos, ballVel, ballAngVel;
+	Vec ballPos;
+	Vec ballVel;
+	Vec ballAngVel;
+
 	Vec carPos[2];
-	Vec carRotEuler[2]; // yaw, pitch, roll in radians
-	Vec carVel[2], carAngVel[2];
+	Vec carRotEuler[2];
+	Vec carVel[2];
+	Vec carAngVel[2];
+
 	float carBoost[2];
 	bool carOnGround[2];
-	int blueScore, orangeScore;
+
+	int blueScore;
+	int orangeScore;
 };
 
 class R3maJStateSetter : public StateSetter {
@@ -29,30 +39,38 @@ public:
 	};
 
 	R3maJStateSetter();
-	explicit R3maJStateSetter(const std::string& replayPath);
+	R3maJStateSetter(const std::string& replayPath);
 
-	virtual void ResetArena(Arena* arena) override;
+	void ResetArena(Arena* arena) override;
 
+private:
+	// ---- Shared replay storage ----
+	//
+	// All 164 environments share these instead
+	// of loading a separate copy of the replay
+	// dataset for every StateSetter instance.
 	static std::shared_ptr<std::vector<ReplayFrame>> _sharedReplayFrames;
 	static std::shared_ptr<std::vector<float>> _sharedReplayCumWeights;
 
+	// Guarantees the replay file is loaded only once,
+	// even when many environments are created.
+	static std::once_flag _replayLoadOnce;
+
+	// ---- Replay functions ----
 	bool _LoadReplays(const std::string& path);
 	int _SampleReplayFrame() const;
 
-	void _SetFromReplay(Arena* arena, const ReplayFrame& frame) const;
+	void _SetFromReplay(
+		Arena* arena,
+		const ReplayFrame& frame
+	) const;
 
-	void SetKickoff(Arena* arena);
+	// ---- Procedural state setters ----
+	Mode _pickMode() const;
+
 	void SetGroundPlay(Arena* arena);
 	void SetGoaliePractice(Arena* arena);
 	void SetAerialPractice(Arena* arena);
 	void SetWallPlay(Arena* arena);
 	void SetDribblePractice(Arena* arena);
-
-	Mode _pickMode() const;
-
-	Car* _getCar(Arena* arena, Team team) {
-		for (Car* car : arena->_cars)
-			if (car->team == team) return car;
-		return nullptr;
-	}
 };
