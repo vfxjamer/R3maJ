@@ -4,209 +4,137 @@
 #include <algorithm>
 
 // Phase boundaries (in steps)
-static constexpr int64_t PHASE_0_END = 5'000'000'000;    // 0      - 5B
-static constexpr int64_t PHASE_1_END = 15'000'000'000;   // 5B     - 15B
-static constexpr int64_t PHASE_2_END = 30'000'000'000;   // 15B    - 30B
-static constexpr int64_t PHASE_3_END = 200'000'000'000;  // 30B    - 200B (mech ramp 30-60B)
+static constexpr int64_t PHASE_0_END = 5'000'000'000;
+static constexpr int64_t PHASE_1_END = 15'000'000'000;
+static constexpr int64_t PHASE_2_END = 30'000'000'000;
+static constexpr int64_t PHASE_3_END = 200'000'000'000;
 
-// Phase-3 gradual mechanical ramp window (lerp 0 -> Necto target)
-static constexpr int64_t MECH_RAMP_START = PHASE_2_END;                 // 30B
-static constexpr int64_t MECH_RAMP_END   = 60'000'000'000;              // 60B
+static constexpr int64_t MECH_RAMP_START = PHASE_2_END;
+static constexpr int64_t MECH_RAMP_END   = 60'000'000'000;
 
-// Necto/R3maJ mechanical target weights (eventual), used as the phase-3 ramp ceiling.
-static constexpr float MECH_TARGET_FLIP_RESET    = 10.f;
-static constexpr float MECH_TARGET_JUMP_TOUCH    = 6.f;
-static constexpr float MECH_TARGET_WALL_TOUCH    = 2.f;
-static constexpr float MECH_TARGET_AIR_DRIBBLE   = 2.f;
-static constexpr float MECH_TARGET_CRADLE        = 1.f;
-static constexpr float MECH_TARGET_ANG_VEL       = 0.005f;
+static constexpr float MECH_TARGET_FLIP_RESET  = 10.f;
+static constexpr float MECH_TARGET_JUMP_TOUCH  = 6.f;
+static constexpr float MECH_TARGET_WALL_TOUCH  = 2.f;
+static constexpr float MECH_TARGET_AIR_DRIBBLE = 2.f;
+static constexpr float MECH_TARGET_CRADLE      = 1.f;
+static constexpr float MECH_TARGET_ANG_VEL     = 0.005f;
 
 PhaseManager::PhaseManager() {
-	// ---- Phase 0 (0-5B): Contact / fundamentals ----
-	// PlayerQuality=1, Goal=10, OpponentPunish=1, GoalDistance=2; everything else 0
-	PhaseRewards phase0Rewards = {
-		.boost_gain_w         = 0.f,
-		.boost_lose_w         = 0.f,
-		.ang_vel_w            = 0.f,
-		.touch_grass_w        = 0.f,
-		.goal_w               = 10.f,
-		.win_prob_w           = 0.f,
-		.goal_dist_w          = 2.f,
-		.goal_speed_bonus_w   = 0.f,
-		.touch_height_w       = 0.f,
-		.touch_accel_w        = 0.f,
-		.flip_reset_w         = 0.f,
-		.demo_w               = 0.f,
-		.opponent_punish_w    = 1.f,
-		.goal_dist_bonus_w    = 0.f,
-		.dist_w               = 0.25f,
-		.align_w              = 0.25f,
-		.jump_touch_w         = 0.f,
-		.wall_touch_w         = 0.f,
-		.air_dribble_w        = 0.f,
-		.cradle_w             = 0.f,
-	};
+    PhaseRewards phase0Rewards = {
+        .boost_gain_w=0.f,.boost_lose_w=0.f,.ang_vel_w=0.f,.touch_grass_w=0.f,
+        .goal_w=10.f,.win_prob_w=0.f,.goal_dist_w=2.f,.goal_speed_bonus_w=0.f,
+        .touch_height_w=0.f,.touch_accel_w=0.f,.flip_reset_w=0.f,.demo_w=0.f,
+        .opponent_punish_w=1.f,.goal_dist_bonus_w=0.f,.dist_w=0.25f,.align_w=0.25f,
+        .jump_touch_w=0.f,.wall_touch_w=0.f,.air_dribble_w=0.f,.cradle_w=0.f,
+    };
 
-	// ---- Phase 1 (5-15B): Ball -> Goal ----
-	// + GoalDistance 5, GoalSpeedBonus 1, TouchAcceleration 0.5
-	PhaseRewards phase1Rewards = {
-		.boost_gain_w         = 0.f,
-		.boost_lose_w         = 0.f,
-		.ang_vel_w            = 0.f,
-		.touch_grass_w        = 0.f,
-		.goal_w               = 10.f,
-		.win_prob_w           = 0.f,
-		.goal_dist_w          = 5.f,
-		.goal_speed_bonus_w   = 1.f,
-		.touch_height_w       = 0.f,
-		.touch_accel_w        = 0.5f,
-		.flip_reset_w         = 0.f,
-		.demo_w               = 0.f,
-		.opponent_punish_w    = 1.f,
-		.goal_dist_bonus_w    = 0.f,
-		.dist_w               = 0.25f,
-		.align_w              = 0.25f,
-		.jump_touch_w         = 0.f,
-		.wall_touch_w         = 0.f,
-		.air_dribble_w        = 0.f,
-		.cradle_w             = 0.f,
-	};
+    PhaseRewards phase1Rewards = {
+        .boost_gain_w=0.f,.boost_lose_w=0.f,.ang_vel_w=0.f,.touch_grass_w=0.f,
+        .goal_w=10.f,.win_prob_w=0.f,.goal_dist_w=5.f,.goal_speed_bonus_w=1.f,
+        .touch_height_w=0.f,.touch_accel_w=0.5f,.flip_reset_w=0.f,.demo_w=0.f,
+        .opponent_punish_w=1.f,.goal_dist_bonus_w=0.f,.dist_w=0.25f,.align_w=0.25f,
+        .jump_touch_w=0.f,.wall_touch_w=0.f,.air_dribble_w=0.f,.cradle_w=0.f,
+    };
 
-	// ---- Phase 2 (15-30B): Basic 1v1 ----
-	// + GoalSpeedBonus 2, TouchHeight 1, TouchAccel 1, BoostGain 0.5, BoostLose 0.25,
-	//   Demo 0.5, WinProbability 2
-	PhaseRewards phase2Rewards = {
-		.boost_gain_w         = 0.5f,
-		.boost_lose_w         = 0.25f,
-		.ang_vel_w            = 0.f,
-		.touch_grass_w        = 0.f,
-		.goal_w               = 10.f,
-		.win_prob_w           = 2.f,
-		.goal_dist_w          = 5.f,
-		.goal_speed_bonus_w   = 2.f,
-		.touch_height_w       = 1.f,
-		.touch_accel_w        = 1.f,
-		.flip_reset_w         = 0.f,
-		.demo_w               = 0.5f,
-		.opponent_punish_w    = 1.f,
-		.goal_dist_bonus_w    = 0.f,
-		.dist_w               = 0.25f,
-		.align_w              = 0.25f,
-		.jump_touch_w         = 0.f,
-		.wall_touch_w         = 0.f,
-		.air_dribble_w        = 0.f,
-		.cradle_w             = 0.f,
-	};
+    PhaseRewards phase2Rewards = {
+        .boost_gain_w=0.5f,.boost_lose_w=0.25f,.ang_vel_w=0.f,.touch_grass_w=0.f,
+        .goal_w=10.f,.win_prob_w=2.f,.goal_dist_w=5.f,.goal_speed_bonus_w=2.f,
+        .touch_height_w=1.f,.touch_accel_w=1.f,.flip_reset_w=0.f,.demo_w=0.5f,
+        .opponent_punish_w=1.f,.goal_dist_bonus_w=0.f,.dist_w=0.25f,.align_w=0.25f,
+        .jump_touch_w=0.f,.wall_touch_w=0.f,.air_dribble_w=0.f,.cradle_w=0.f,
+    };
 
-	// ---- Phase 3 (30B+): mechanical curriculum ----
-	// Base is the Phase-2 (Basic 1v1) set; mechanical rewards ramp in gradually
-	// (GetRewards lerps the mechanical weights 0 -> Necto target between 30B and 60B).
-	PhaseRewards phase3Rewards = phase2Rewards;
-	phase3Rewards.flip_reset_w         = MECH_TARGET_FLIP_RESET;
-	phase3Rewards.jump_touch_w         = MECH_TARGET_JUMP_TOUCH;
-	phase3Rewards.wall_touch_w         = MECH_TARGET_WALL_TOUCH;
-	phase3Rewards.air_dribble_w        = MECH_TARGET_AIR_DRIBBLE;
-	phase3Rewards.cradle_w             = MECH_TARGET_CRADLE;
-	phase3Rewards.ang_vel_w            = MECH_TARGET_ANG_VEL;
+    PhaseRewards phase3Rewards = phase2Rewards;
+    phase3Rewards.flip_reset_w=MECH_TARGET_FLIP_RESET;
+    phase3Rewards.jump_touch_w=MECH_TARGET_JUMP_TOUCH;
+    phase3Rewards.wall_touch_w=MECH_TARGET_WALL_TOUCH;
+    phase3Rewards.air_dribble_w=MECH_TARGET_AIR_DRIBBLE;
+    phase3Rewards.cradle_w=MECH_TARGET_CRADLE;
+    phase3Rewards.ang_vel_w=MECH_TARGET_ANG_VEL;
 
-	_phases[0] = { 0,                  PHASE_0_END, 0.990f, 0.05f, 1e-4f, 1e-4f, phase0Rewards };
-	_phases[1] = { PHASE_0_END,        PHASE_1_END, 0.993f, 0.03f, 1e-4f, 1e-4f, phase1Rewards };
-	_phases[2] = { PHASE_1_END,        PHASE_2_END, 0.995f, 0.02f, 1e-4f, 1e-4f, phase2Rewards };
-	_phases[3] = { PHASE_2_END,        PHASE_3_END, 0.998f, 0.01f, 1e-4f, 1e-4f, phase3Rewards };
+    _phases[0] = {0,PHASE_0_END,0.990f,0.05f,1e-4f,1e-4f,phase0Rewards};
+    _phases[1] = {PHASE_0_END,PHASE_1_END,0.993f,0.03f,1e-4f,1e-4f,phase1Rewards};
+    _phases[2] = {PHASE_1_END,PHASE_2_END,0.995f,0.02f,1e-4f,1e-4f,phase2Rewards};
+    _phases[3] = {PHASE_2_END,PHASE_3_END,0.998f,0.01f,1e-4f,1e-4f,phase3Rewards};
 }
 
 int PhaseManager::GetCurrentPhase(int64_t totalTimesteps) const {
-	for (int i = 0; i < 4; i++) {
-		if (totalTimesteps >= _phases[i].startStep && totalTimesteps < _phases[i].endStep)
-			return i;
-	}
-	return 3;
+    for (int i=0;i<4;i++) {
+        if (totalTimesteps >= _phases[i].startStep && totalTimesteps < _phases[i].endStep)
+            return i;
+    }
+    return 3;
 }
 
-const PhaseConfig& PhaseManager::GetPhaseConfig(int phaseIdx) const {
-	return _phases[phaseIdx];
-}
+const PhaseConfig& PhaseManager::GetPhaseConfig(int phaseIdx) const { return _phases[phaseIdx]; }
 
 PhaseRewards PhaseManager::GetRewards(int64_t totalTimesteps) const {
-	int idx = GetCurrentPhase(totalTimesteps);
-	if (idx != 3)
-		return _phases[idx].rewards;
-
-	// Phase 3: base (Basic 1v1), mechanical weights ramped 0 -> target between 30B and 60B.
-	PhaseRewards r = _phases[3].rewards;
-
-	float f = 0.f;
-	if (totalTimesteps > MECH_RAMP_START) {
-		f = (float)(totalTimesteps - MECH_RAMP_START) / (float)(MECH_RAMP_END - MECH_RAMP_START);
-		f = std::clamp(f, 0.0f, 1.0f);
-	}
-
-	r.flip_reset_w  *= f;
-	r.jump_touch_w  *= f;
-	r.wall_touch_w  *= f;
-	r.air_dribble_w *= f;
-	r.cradle_w      *= f;
-	r.ang_vel_w     *= f;
-
-	return r;
+    int idx=GetCurrentPhase(totalTimesteps);
+    if (idx!=3) return _phases[idx].rewards;
+    PhaseRewards r=_phases[3].rewards;
+    float f=0.f;
+    if (totalTimesteps>MECH_RAMP_START) {
+        f=(float)(totalTimesteps-MECH_RAMP_START)/(float)(MECH_RAMP_END-MECH_RAMP_START);
+        f=std::clamp(f,0.0f,1.0f);
+    }
+    r.flip_reset_w*=f; r.jump_touch_w*=f; r.wall_touch_w*=f;
+    r.air_dribble_w*=f; r.cradle_w*=f; r.ang_vel_w*=f;
+    return r;
 }
 
 GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
-	const auto& p = _phases[phaseIdx];
-	GGL::LearnerConfig cfg = {};
+    const auto& p=_phases[phaseIdx];
+    GGL::LearnerConfig cfg={};
+    static const int64_t SCALED_BATCH[4]={100'000,200'000,300'000,400'000};
+    const int64_t batch=SCALED_BATCH[RS_CLAMP(phaseIdx,0,3)];
+    cfg.numGames=96;
+    cfg.tickSkip=8;
+    cfg.actionDelay=2;
+    cfg.deviceType=GGL::LearnerDeviceType::CPU;
+    cfg.checkpointFolder="checkpoints";
+    cfg.tsPerSave=5'000'000;
+    cfg.checkpointsToKeep=8;
+    cfg.standardizeObs=true;
+    cfg.standardizeReturns=true;
+    cfg.addRewardsToMetrics=true;
+    cfg.sendMetrics=true;
+    cfg.metricsProjectName="r3maj";
+    cfg.metricsGroupName="phases";
+    cfg.metricsRunName="R3maJ p1 training";
+    cfg.randomSeed=-1;
 
-	// Batch scaling: 100k -> 200k -> 300k -> 400k (phase 0..3)
-	static const int64_t SCALED_BATCH[4] = { 100'000, 200'000, 300'000, 400'000 };
-	const int64_t batch = SCALED_BATCH[RS_CLAMP(phaseIdx, 0, 3)];
+    // Training must run headless in Colab. Render mode creates the RenderSender
+    // and consumes simulation resources instead of producing learner telemetry.
+    cfg.renderMode=false;
 
-	cfg.numGames = 96;
-	cfg.tickSkip = 8;
-	cfg.actionDelay = 2;
-	// R3maJ: CPU-only build
-	cfg.deviceType = GGL::LearnerDeviceType::CPU;
-	cfg.checkpointFolder = "checkpoints";
-	cfg.tsPerSave = 5'000'000;
-	cfg.checkpointsToKeep = 8;
-	cfg.standardizeObs = true;
-	cfg.standardizeReturns = true;
-	cfg.addRewardsToMetrics = true;
-	cfg.sendMetrics = true;
-	cfg.metricsProjectName = "r3maj";
-	cfg.metricsGroupName = "phases";
-	cfg.metricsRunName = "R3maJ p1 training";
-	cfg.randomSeed = -1;
-	// R3maJ: renderer version - render mode enabled
-	cfg.renderMode = true;
+    auto& ppo=cfg.ppo;
+    ppo.tsPerItr=batch;
+    ppo.batchSize=batch;
+    ppo.miniBatchSize=batch/10;
+    ppo.epochs=15;
+    ppo.gaeLambda=0.95f;
+    ppo.gaeGamma=p.gamma;
+    ppo.entropyScale=p.entropyScale;
+    ppo.policyLR=p.policyLR;
+    ppo.criticLR=p.criticLR;
+    ppo.clipRange=0.2f;
+    ppo.rewardClipRange=10;
+    ppo.policyTemperature=1.f;
+    ppo.maxEpisodeDuration=120;
 
-	auto& ppo = cfg.ppo;
-	ppo.tsPerItr = batch;
-	ppo.batchSize = batch;
-	ppo.miniBatchSize = batch / 10;
-	ppo.epochs = 15;
-	ppo.gaeLambda = 0.95f;
-	ppo.gaeGamma = p.gamma;
-	ppo.entropyScale = p.entropyScale;
-	ppo.policyLR = p.policyLR;
-	ppo.criticLR = p.criticLR;
-	ppo.clipRange = 0.2f;
-	ppo.rewardClipRange = 10;
-	ppo.policyTemperature = 1.f;
-	ppo.maxEpisodeDuration = 120;
+    ppo.sharedHead.layerSizes={512,512};
+    ppo.sharedHead.addLayerNorm=true;
+    ppo.sharedHead.activationType=GGL::ModelActivationType::RELU;
+    ppo.sharedHead.optimType=GGL::ModelOptimType::ADAM;
 
-	ppo.sharedHead.layerSizes = { 512, 512 };
-	ppo.sharedHead.addLayerNorm = true;
-	ppo.sharedHead.activationType = GGL::ModelActivationType::RELU;
-	ppo.sharedHead.optimType = GGL::ModelOptimType::ADAM;
+    ppo.policy.layerSizes={512,512,512,512,512,512};
+    ppo.policy.addLayerNorm=true;
+    ppo.policy.activationType=GGL::ModelActivationType::RELU;
+    ppo.policy.optimType=GGL::ModelOptimType::ADAM;
 
-	ppo.policy.layerSizes = { 512, 512, 512, 512, 512, 512 };
-	ppo.policy.addLayerNorm = true;
-	ppo.policy.activationType = GGL::ModelActivationType::RELU;
-	ppo.policy.optimType = GGL::ModelOptimType::ADAM;
-
-	ppo.critic.layerSizes = { 512, 512, 512, 512, 512, 512 };
-	ppo.critic.addLayerNorm = true;
-	ppo.critic.activationType = GGL::ModelActivationType::RELU;
-	ppo.critic.optimType = GGL::ModelOptimType::ADAM;
-
-	return cfg;
+    ppo.critic.layerSizes={512,512,512,512,512,512};
+    ppo.critic.addLayerNorm=true;
+    ppo.critic.activationType=GGL::ModelActivationType::RELU;
+    ppo.critic.optimType=GGL::ModelOptimType::ADAM;
+    return cfg;
 }
