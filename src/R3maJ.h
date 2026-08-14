@@ -24,7 +24,6 @@ using namespace GGL;
 
 using RewardConfig = PhaseRewards;
 
-// These are process-local because the executable has one training learner.
 inline RewardConfig g_rewards{};
 inline std::string g_replayPath;
 
@@ -68,38 +67,30 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     arena->AddCar(Team::BLUE, CAR_CONFIG_OCTANE);
     arena->AddCar(Team::ORANGE, CAR_CONFIG_OCTANE);
 
-    const auto& r = g_rewards;
-
+    // ============================================================
+    // PHASE 1 / EARLY STAGE — EXACT GUIDE REWARD STACK
+    //
+    // EventReward(touch=1), 50
+    // SpeedTowardBallReward(), 5
+    // FaceBallReward(), 1
+    // AirReward(), 0.15
+    //
+    // No goal/scoring/goal-distance rewards are used here. The guide
+    // explicitly recommends learning reliable ball contact first.
+    // SimpleTouchReward is the local C++ equivalent of EventReward(touch=1).
+    // ============================================================
     std::vector<WeightedReward> components;
-    components.reserve(21);
-
-    components.emplace_back(new GoalReward(-1.f), r.goal_w);
-    components.emplace_back(new WinProbReward(120 * 120 / 8, 8), r.win_prob_w);
-    components.emplace_back(new GoalDistanceReward(), r.goal_dist_w);
-    components.emplace_back(new GoalSpeedBonusReward(), r.goal_speed_bonus_w);
-    components.emplace_back(new GoalDistBonusReward(), r.goal_dist_bonus_w);
-
-    // Deliberately simple baseline touch reward. Weight is fixed at 50 for the
-    // current training stage; the reward itself is exactly +1 per touch.
+    components.reserve(4);
     components.emplace_back(new SimpleTouchReward(), 50.f);
+    components.emplace_back(new SpeedTowardBallReward(), 5.f);
+    components.emplace_back(new FaceBallReward(), 1.f);
+    components.emplace_back(new AirReward(), 0.15f);
 
-    components.emplace_back(new TouchHeightReward(), r.touch_height_w);
-    components.emplace_back(new NectoTouchAccelReward(), r.touch_accel_w);
-    components.emplace_back(new PickupBoostReward(), r.boost_gain_w);
-    components.emplace_back(new BoostUsagePenalty(), r.boost_lose_w);
-    components.emplace_back(new DemoReward(), r.demo_w);
-    components.emplace_back(new FlipResetReward(), r.flip_reset_w);
-    components.emplace_back(new JumpTouchReward(), r.jump_touch_w);
-    components.emplace_back(new WallTouchReward(), r.wall_touch_w);
-    components.emplace_back(new AirDribbleReward(), r.air_dribble_w);
-    components.emplace_back(new CradleReward(), r.cradle_w);
-    components.emplace_back(new AngVelReward(), r.ang_vel_w);
-    components.emplace_back(new GroundIdlePenalty(), r.touch_grass_w);
-    components.emplace_back(new PlayerQualityReward(r.dist_w, r.align_w), 1.f);
-
-    auto* combined = new AllRewardsWrapper(components, r.opponent_punish_w);
+    auto* combined = new AllRewardsWrapper(components, 0.f);
     std::vector<WeightedReward> rewards = { WeightedReward(combined, 1.f) };
 
+    // Goals still terminate an episode; there is deliberately no goal reward
+    // in this early-stage reward function.
     std::vector<TerminalCondition*> terminals = {
         new GoalScoreCondition(),
         new NoTouchCondition(120 * 120 / 8)
