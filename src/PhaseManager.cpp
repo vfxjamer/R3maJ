@@ -20,19 +20,29 @@ static constexpr float MECH_TARGET_CRADLE      = 1.f;
 static constexpr float MECH_TARGET_ANG_VEL     = 0.005f;
 
 PhaseManager::PhaseManager() {
+    // Phase 1 / early stage follows ZealanL's RLGym-PPO guide exactly:
+    // EventReward(touch=1), 50
+    // SpeedTowardBallReward(), 5
+    // FaceBallReward(), 1
+    // AirReward(), 0.15
+    //
+    // Deliberately NO goal, goal-distance, win-probability, or scoring
+    // rewards here. The guide explicitly recommends learning reliable ball
+    // contact first because scoring rewards add noise before the bot can
+    // consistently hit the ball.
     PhaseRewards phase0Rewards = {
         .boost_gain_w=0.f,.boost_lose_w=0.f,.ang_vel_w=0.f,.touch_grass_w=0.f,
-        .goal_w=10.f,.win_prob_w=0.f,.goal_dist_w=2.f,.goal_speed_bonus_w=0.f,
+        .goal_w=0.f,.win_prob_w=0.f,.goal_dist_w=0.f,.goal_speed_bonus_w=0.f,
         .touch_height_w=0.f,.touch_accel_w=0.f,.flip_reset_w=0.f,.demo_w=0.f,
-        .opponent_punish_w=1.f,.goal_dist_bonus_w=0.f,.dist_w=0.25f,.align_w=0.25f,
+        .opponent_punish_w=0.f,.goal_dist_bonus_w=0.f,.dist_w=0.f,.align_w=0.f,
         .jump_touch_w=0.f,.wall_touch_w=0.f,.air_dribble_w=0.f,.cradle_w=0.f,
     };
 
     PhaseRewards phase1Rewards = {
         .boost_gain_w=0.f,.boost_lose_w=0.f,.ang_vel_w=0.f,.touch_grass_w=0.f,
-        .goal_w=10.f,.win_prob_w=0.f,.goal_dist_w=5.f,.goal_speed_bonus_w=1.f,
-        .touch_height_w=0.f,.touch_accel_w=0.5f,.flip_reset_w=0.f,.demo_w=0.f,
-        .opponent_punish_w=1.f,.goal_dist_bonus_w=0.f,.dist_w=0.25f,.align_w=0.25f,
+        .goal_w=0.f,.win_prob_w=0.f,.goal_dist_w=0.f,.goal_speed_bonus_w=0.f,
+        .touch_height_w=0.f,.touch_accel_w=0.f,.flip_reset_w=0.f,.demo_w=0.f,
+        .opponent_punish_w=0.f,.goal_dist_bonus_w=0.f,.dist_w=0.f,.align_w=0.f,
         .jump_touch_w=0.f,.wall_touch_w=0.f,.air_dribble_w=0.f,.cradle_w=0.f,
     };
 
@@ -52,7 +62,7 @@ PhaseManager::PhaseManager() {
     phase3Rewards.cradle_w=MECH_TARGET_CRADLE;
     phase3Rewards.ang_vel_w=MECH_TARGET_ANG_VEL;
 
-    _phases[0] = {0,PHASE_0_END,0.990f,0.05f,1e-4f,1e-4f,phase0Rewards};
+    _phases[0] = {0,PHASE_0_END,0.990f,0.05f,2e-4f,2e-4f,phase0Rewards};
     _phases[1] = {PHASE_0_END,PHASE_1_END,0.993f,0.03f,1e-4f,1e-4f,phase1Rewards};
     _phases[2] = {PHASE_1_END,PHASE_2_END,0.995f,0.02f,1e-4f,1e-4f,phase2Rewards};
     _phases[3] = {PHASE_2_END,PHASE_3_END,0.998f,0.01f,1e-4f,1e-4f,phase3Rewards};
@@ -102,9 +112,6 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
     cfg.metricsGroupName="phases";
     cfg.metricsRunName="R3maJ p1 training";
     cfg.randomSeed=-1;
-
-    // Training must run headless in Colab. Render mode creates the RenderSender
-    // and consumes simulation resources instead of producing learner telemetry.
     cfg.renderMode=false;
 
     auto& ppo=cfg.ppo;
