@@ -52,7 +52,7 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
 	static const int64_t SCALED_BATCH[4] = { 50'000, 150'000, 300'000, 400'000 };
 	const int64_t batch = SCALED_BATCH[RS_CLAMP(phaseIdx, 0, 3)];
 
-	cfg.numGames = 164;
+	cfg.numGames = 256;
 	cfg.tickSkip = 8;
 	cfg.actionDelay = 2;
 	cfg.deviceType = GGL::LearnerDeviceType::CPU;
@@ -73,7 +73,7 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
 	ppo.tsPerItr = batch;
 	ppo.batchSize = batch;
 	ppo.miniBatchSize = batch / 10;
-	ppo.epochs = 15;
+	ppo.epochs = 8;
 	ppo.gaeLambda = 0.99f;
 	ppo.gaeGamma = p.gamma;
 	ppo.entropyScale = p.entropyScale;
