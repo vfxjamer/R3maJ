@@ -4,6 +4,7 @@
 #include "R3maJRewards.h"
 #include "R3maJStateSetter.h"
 #include "R3maJOBS.h"
+#include "SimpleTouchReward.h"
 
 #include <GigaLearnCPP/Learner.h>
 #include <GigaLearnCPP/Util/Report.h>
@@ -70,13 +71,18 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     const auto& r = g_rewards;
 
     std::vector<WeightedReward> components;
-    components.reserve(20);
+    components.reserve(21);
 
     components.emplace_back(new GoalReward(-1.f), r.goal_w);
     components.emplace_back(new WinProbReward(120 * 120 / 8, 8), r.win_prob_w);
     components.emplace_back(new GoalDistanceReward(), r.goal_dist_w);
     components.emplace_back(new GoalSpeedBonusReward(), r.goal_speed_bonus_w);
     components.emplace_back(new GoalDistBonusReward(), r.goal_dist_bonus_w);
+
+    // Deliberately simple baseline touch reward. Weight is fixed at 50 for the
+    // current training stage; the reward itself is exactly +1 per touch.
+    components.emplace_back(new SimpleTouchReward(), 50.f);
+
     components.emplace_back(new TouchHeightReward(), r.touch_height_w);
     components.emplace_back(new NectoTouchAccelReward(), r.touch_accel_w);
     components.emplace_back(new PickupBoostReward(), r.boost_gain_w);
