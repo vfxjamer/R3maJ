@@ -21,9 +21,16 @@ using namespace RocketSim;
 using namespace RLGC;
 using namespace GGL;
 
-// Keep the name used by the training entry point while using the phase
-// manager's actual reward configuration type.
 using RewardConfig = PhaseRewards;
+
+// These are process-local because the executable has one training learner.
+inline RewardConfig g_rewards{};
+inline std::string g_replayPath;
+
+inline void SetupSignalHandlers() {
+    // GigaLearn owns the training lifecycle. Keeping this hook explicit makes
+    // the entry point compatible with both the headless Colab and local builds.
+}
 
 inline uint64_t ReadCheckpointTotalTimesteps(const std::string& folder) {
     namespace fs = std::filesystem;
@@ -56,7 +63,6 @@ inline uint64_t ReadCheckpointTotalTimesteps(const std::string& folder) {
 }
 
 inline EnvCreateResult EnvCreateFunc(int /*index*/) {
-    // Arena is owned by EnvSet after the factory returns.
     Arena* arena = Arena::Create(GameMode::SOCCAR);
     arena->AddCar(Team::BLUE, CAR_CONFIG_OCTANE);
     arena->AddCar(Team::ORANGE, CAR_CONFIG_OCTANE);
@@ -85,16 +91,9 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     components.emplace_back(new GroundIdlePenalty(), r.touch_grass_w);
     components.emplace_back(new PlayerQualityReward(r.dist_w, r.align_w), 1.f);
 
-    // AllRewardsWrapper owns the individual reward objects and applies the
-    // opponent-punishment/zero-sum term in one place.
     auto* combined = new AllRewardsWrapper(components, r.opponent_punish_w);
+    std::vector<WeightedReward> rewards = { WeightedReward(combined, 1.f) };
 
-    std::vector<WeightedReward> rewards = {
-        WeightedReward(combined, 1.f)
-    };
-
-    // End on a goal or after a prolonged no-touch period. The PPO episode
-    // duration remains capped by the learner configuration at 120 seconds.
     std::vector<TerminalCondition*> terminals = {
         new GoalScoreCondition(),
         new NoTouchCondition(120 * 120 / 8)
@@ -102,12 +101,9 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
 
     auto* obsBuilder = new R3maJOBS(120.f);
     auto* actionParser = new DefaultAction();
-    StateSetter* stateSetter = nullptr;
-
-    if (!g_replayPath.empty())
-        stateSetter = new R3maJStateSetter(g_replayPath);
-    else
-        stateSetter = new R3maJStateSetter();
+    StateSetter* stateSetter = g_replayPath.empty()
+        ? static_cast<StateSetter*>(new R3maJStateSetter())
+        : static_cast<StateSetter*>(new R3maJStateSetter(g_replayPath));
 
     return {
         arena,
@@ -120,8 +116,6 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     };
 }
 
-// GigaLearn's current callback ABI is (Learner*, states, Report&).
-// Keep telemetry lightweight so headless training does not depend on W&B.
 inline void StepCallback(Learner* /*learner*/, const std::vector<GameState>& states, Report& report) {
     if (states.empty())
         return;
