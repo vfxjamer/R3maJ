@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Discover Python so pip-installed PyTorch can provide its CMake package path.
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 execute_process(
@@ -28,12 +27,11 @@ endif()
 list(APPEND CMAKE_PREFIX_PATH "${TORCH_INSTALL_PREFIX}")
 message(STATUS "PyTorch CMake prefix: ${TORCH_INSTALL_PREFIX}")
 
-# Modern CUDA detection. CUDAToolkit is sufficient for the GigaLearn/PyTorch
-# CUDA build and avoids CMake's deprecated FindCUDA module.
+# GigaLearnCPP owns the actual Torch linkage. We only discover Torch here so
+# its package configuration and CUDA libraries are available to the subtree.
 find_package(CUDAToolkit QUIET)
 if(CUDAToolkit_FOUND)
     enable_language(CUDA)
-    set(CMAKE_CUDA_ARCHITECTURES "75" CACHE STRING "CUDA architectures" FORCE)
     message(STATUS "CUDA toolkit found: ${CUDAToolkit_VERSION}")
     message(STATUS "CUDA compiler: ${CMAKE_CUDA_COMPILER}")
 else()
@@ -53,14 +51,17 @@ if(MSVC)
     target_link_options(R3maJ PRIVATE /STACK:8388608)
 endif()
 
-target_link_libraries(R3maJ PRIVATE GigaLearnCPP Torch::Torch)
+# Do not link Torch::Torch here: the bundled GigaLearnCPP CMake target already
+# links the Torch libraries and the pip wheel may not export Torch::Torch as an
+# imported target on all Linux/Colab configurations.
+target_link_libraries(R3maJ PRIVATE GigaLearnCPP)
 target_include_directories(R3maJ PRIVATE "src")
 
 add_custom_command(TARGET R3maJ POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "$<TARGET_FILE_DIR:GigaLearnCPP>"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMENT "Copying GigaLearnCPP DLLs to output..."
+    COMMENT "Copying GigaLearnCPP libraries to output..."
 )
 
 add_custom_command(TARGET R3maJ POST_BUILD
