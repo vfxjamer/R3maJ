@@ -1,34 +1,24 @@
 #include "R3maJ.h"
 #include "PhaseManager.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <sstream>
 #include <string>
-#include <vector>
 
 using namespace RocketSim;
 
 static PhaseManager g_PhaseManager;
 static int g_phaseIdx = 0;
 static uint64_t g_totalTimesteps = 0;
-static RewardConfig g_rewards;
-static std::string g_replayPath;
 static int g_requestedGames = 0;
 static Learner* g_learner = nullptr;
-
-static void SetupSignalHandlers();
-static uint64_t ReadCheckpointTotalTimesteps(const std::string& folder);
-static void StepCallback(const std::vector<RL::State>& states, Learner* learner);
 
 static void PrintUsage(const char* progName) {
     RG_LOG("Usage: " << progName << " [options]");
     RG_LOG("  --resume <dir>    Load checkpoint from directory");
     RG_LOG("  --device <type>   Device type: cpu, cuda (default: cpu)");
-    RG_LOG("  --games <n>       Number of parallel games (default: 32)");
+    RG_LOG("  --games <n>       Number of parallel games (default: 96)");
     RG_LOG("  --save-dir <dir>  Checkpoint save/load directory (default: checkpoints)");
     RG_LOG("  --phase <n>       Force phase index 0-3 (default: auto from checkpoint timesteps)");
     RG_LOG("  --replays <path>  Binary replay file for state initialization");
@@ -76,8 +66,10 @@ int main(int argc, char* argv[]) {
 
     if (phaseIdx == -1)
         phaseIdx = g_PhaseManager.GetCurrentPhase(g_totalTimesteps);
+
     g_phaseIdx = phaseIdx;
     g_rewards = g_PhaseManager.GetRewards(g_totalTimesteps);
+    g_replayPath = replayPath;
 
     LearnerConfig cfg = g_PhaseManager.MakeLearnerConfig(phaseIdx);
     cfg.checkpointFolder = checkpointFolder;
@@ -91,11 +83,7 @@ int main(int argc, char* argv[]) {
         cfg.numGames = numGames;
     g_requestedGames = cfg.numGames;
 
-    if (!replayPath.empty())
-        g_replayPath = replayPath;
-
-    // W&B / MetricSender is intentionally disabled. Training must not depend
-    // on Python telemetry, W&B authentication, or metric_receiver.py.
+    // Headless training must not depend on Python/W&B telemetry.
     cfg.sendMetrics = false;
 
     RG_LOG(RG_DIVIDER);
