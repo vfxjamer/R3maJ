@@ -1,55 +1,48 @@
-﻿#pragma once
+#pragma once
 #include <stdint.h>
-#include <vector>
 #include <GigaLearnCPP/LearnerConfig.h>
 
 struct PhaseRewards {
-	float boost_gain_w;
-	float boost_lose_w;
-	float ang_vel_w;
-	float touch_grass_w;
-	float goal_w;
-	float win_prob_w;
-	float goal_dist_w;
-	float goal_speed_bonus_w;
-	float touch_height_w;
-	float touch_accel_w;
-	float flip_reset_w;
-	float demo_w;
-	float opponent_punish_w;
-	float goal_dist_bonus_w;
-	float dist_w;
-	float align_w;
-	float jump_touch_w;
-	float wall_touch_w;
-	float air_dribble_w;
-	float cradle_w;
+    float touch_w;
+    float speed_to_ball_w;
+    float face_ball_w;
+    float air_time_w;
+    float ground_idle_w;
+    float ball_to_goal_w;
+    float touch_accel_w;
+    float touch_height_w;
+    float goal_w;
+    float save_w;
+    float boost_gain_w;
+    float save_boost_w;
+    float boost_waste_w;
+    float demo_w;
+    float air_touch_w;
+    float flip_reset_w;
+    float wall_touch_w;
+    float air_dribble_w;
+    float cradle_w;
+    float angular_movement_w;
 };
 
 struct PhaseConfig {
-	int64_t startStep;
-	int64_t endStep;
-	float gamma;
-	float entropyScale;
-	float policyLR;
-	float criticLR;
-	PhaseRewards rewards;
+    int64_t startStep;
+    int64_t endStep;
+    float gamma;
+    float entropyScale;
+    float policyLR;
+    float criticLR;
+    PhaseRewards rewards;
 };
 
 class PhaseManager {
 public:
-	PhaseManager();
-
-	// Phase index 0-3 from total timesteps (0-5B, 5-15B, 15-30B, 30B+)
-	int GetCurrentPhase(int64_t totalTimesteps) const;
-	const PhaseConfig& GetPhaseConfig(int phaseIdx) const;
-	// Effective reward weights for the given total timesteps, including the
-	// gradual phase-3 mechanical ramp (mechanical rewards lerp 0 -> Necto target
-	// between 30B and 60B).
-	PhaseRewards GetRewards(int64_t totalTimesteps) const;
-	GGL::LearnerConfig MakeLearnerConfig(int phaseIdx) const;
-	int GetNumPhases() const { return 4; }
-
+    PhaseManager();
+    int GetCurrentPhase(int64_t totalTimesteps) const;
+    const PhaseConfig& GetPhaseConfig(int phaseIdx) const;
+    PhaseRewards GetRewards(int64_t totalTimesteps) const;
+    GGL::LearnerConfig MakeLearnerConfig(int phaseIdx) const;
+    int GetNumPhases() const { return 4; }
 private:
-	PhaseConfig _phases[4];
+    PhaseConfig _phases[4];
 };
