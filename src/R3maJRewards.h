@@ -7,10 +7,14 @@
 using namespace RLGC;
 
 // Exact early-stage guide helper: reward velocity toward the ball.
-// This is the C++ equivalent of the guide's SpeedTowardBallReward().
+// Equivalent to the guide's SpeedTowardBallReward() in RLGym-PPO.
 class SpeedTowardBallReward : public Reward {
 public:
-    virtual float GetReward(const Player& player, const GameState& state, bool isFinal) override;
+    virtual float GetReward(const Player& player, const GameState& state, bool isFinal) override {
+        Vec dirToBall = (state.ball.pos - player.pos).Normalized();
+        Vec normVel = player.vel / CommonValues::CAR_MAX_SPEED;
+        return dirToBall.Dot(normVel);
+    }
 };
 
 // ============================================================
