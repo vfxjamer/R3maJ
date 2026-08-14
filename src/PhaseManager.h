@@ -40,8 +40,13 @@ class PhaseManager {
 public:
 	PhaseManager();
 
+	// Phase index 0-3 from total timesteps (0-5B, 5-15B, 15-30B, 30B+)
 	int GetCurrentPhase(int64_t totalTimesteps) const;
 	const PhaseConfig& GetPhaseConfig(int phaseIdx) const;
+	// Effective reward weights for the given total timesteps, including the
+	// gradual phase-3 mechanical ramp (mechanical rewards lerp 0 -> Necto target
+	// between 30B and 60B).
+	PhaseRewards GetRewards(int64_t totalTimesteps) const;
 	GGL::LearnerConfig MakeLearnerConfig(int phaseIdx) const;
 	int GetNumPhases() const { return 4; }
 

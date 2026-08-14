@@ -117,7 +117,7 @@ void GGL::Model::Load(std::filesystem::path folder, bool allowNotExist, bool loa
 		RG_ERR_CLOSE("Failed to load from " << path << ", file does not exist or can't be accessed");
 
 	try {
-		torch::load(this->seq, streamIn);
+		torch::load(this->seq, streamIn, device);
 	} catch (std::exception& e) {
 		RG_ERR_CLOSE(
 			"Failed to load model \"" << modelName << ", checkpoint may be corrupt or of different model arch.\n" <<
@@ -148,3 +148,4 @@ void GGL::Model::Load(std::filesystem::path folder, bool allowNotExist, bool loa
 torch::Tensor GGL::Model::CopyParams() const {
 	return torch::nn::utils::parameters_to_vector(parameters()).cpu();
 }
+

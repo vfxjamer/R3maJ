@@ -6,6 +6,7 @@
 #include <torch/cuda.h>
 #include <nlohmann/json.hpp>
 #include <pybind11/embed.h>
+#include <sstream>
 
 #ifdef RG_CUDA_SUPPORT
 #include <c10/cuda/CUDACachingAllocator.h>
@@ -40,7 +41,7 @@ GGL::Learner::Learner(EnvCreateFn envCreateFn, LearnerConfig config, StepCallbac
 	if (config.randomSeed == -1)
 		config.randomSeed = RS_CUR_MS();
 
-	RG_LOG("\tCheckpoint Save/Load Dir: " << config.checkpointFolder);
+	RG_LOG("tCheckpoint Save/Load Dir: " << config.checkpointFolder);
 
 	torch::manual_seed(config.randomSeed);
 
@@ -49,7 +50,7 @@ GGL::Learner::Learner(EnvCreateFn envCreateFn, LearnerConfig config, StepCallbac
 		config.deviceType == LearnerDeviceType::GPU_CUDA || 
 		(config.deviceType == LearnerDeviceType::AUTO && torch::cuda::is_available())
 		) {
-		RG_LOG("\tUsing CUDA GPU device...");
+		RG_LOG("tUsing CUDA GPU device...");
 
 		// Test out moving a tensor to GPU and back to make sure the device is working
 		torch::Tensor t;
@@ -65,22 +66,22 @@ GGL::Learner::Learner(EnvCreateFn envCreateFn, LearnerConfig config, StepCallbac
 		if (!torch::cuda::is_available() || deviceTestFailed)
 			RG_ERR_CLOSE(
 				"Learner::Learner(): Can't use CUDA GPU because " <<
-				(torch::cuda::is_available() ? "libtorch cannot access the GPU" : "CUDA is not available to libtorch") << ".\n" <<
+				(torch::cuda::is_available() ? "libtorch cannot access the GPU" : "CUDA is not available to libtorch") << ".n" <<
 				"Make sure your libtorch comes with CUDA support, and that CUDA is installed properly."
 			)
 		device = at::Device(at::kCUDA);
 	} else {
-		RG_LOG("\tUsing CPU device...");
+		RG_LOG("tUsing CPU device...");
 		device = at::Device(at::kCPU);
 	}
 
 	if (RocketSim::GetStage() != RocketSimStage::INITIALIZED) {
-		RG_LOG("\tInitializing RocketSim...");
+		RG_LOG("tInitializing RocketSim...");
 		RocketSim::Init("collision_meshes", true);
 	}
 
 	{
-		RG_LOG("\tCreating envs...");
+		RG_LOG("tCreating envs...");
 		EnvSetConfig envSetConfig = {};
 		envSetConfig.envCreateFn = envCreateFn;
 		envSetConfig.numArenas = config.renderMode ? 1 : config.numGames;
@@ -107,7 +108,7 @@ GGL::Learner::Learner(EnvCreateFn envCreateFn, LearnerConfig config, StepCallbac
 	}
 
 	try {
-		RG_LOG("\tMaking PPO learner...");
+		RG_LOG("tMaking PPO learner...");
 		ppo = new PPOLearner(obsSize, numActions, config.ppo, device);
 	} catch (std::exception& e) {
 		RG_ERR_CLOSE("Failed to create PPO learner: " << e.what());
@@ -145,7 +146,7 @@ GGL::Learner::Learner(EnvCreateFn envCreateFn, LearnerConfig config, StepCallbac
 
 	if (config.sendMetrics && !config.renderMode) {
 		if (!runID.empty())
-			RG_LOG("\tRun ID: " << runID);
+			RG_LOG("tRun ID: " << runID);
 		metricSender = new MetricSender(config.metricsProjectName, config.metricsGroupName, config.metricsRunName, runID);
 	} else {
 		metricSender = NULL;
@@ -310,7 +311,7 @@ void GGL::Learner::StartTransferLearn(const TransferLearnConfig& tlConfig) {
 	if (oldNumActions != numActions) {
 		if (!tlConfig.mapActsFn) {
 			RG_ERR_CLOSE(
-				"StartTransferLearn: Old and new action parsers have a different number of actions, but tlConfig.mapActsFn is NULL.\n" <<
+				"StartTransferLearn: Old and new action parsers have a different number of actions, but tlConfig.mapActsFn is NULL.n" <<
 				"You must implement this function to translate the action indices."
 			);
 		};
@@ -464,11 +465,11 @@ void GGL::Learner::Start() {
 	bool render = config.renderMode;
 
 	RG_LOG("Learner::Start():");
-	RG_LOG("\tObs size: " << obsSize);
-	RG_LOG("\tAction amount: " << numActions);
+	RG_LOG("tObs size: " << obsSize);
+	RG_LOG("tAction amount: " << numActions);
 
 	if (render)
-		RG_LOG("\t(Render mode enabled)");
+		RG_LOG("t(Render mode enabled)");
 
 	try {
 		bool saveQueued;
@@ -505,6 +506,15 @@ void GGL::Learner::Start() {
 		};
 
 		auto trajectories = std::vector<Trajectory>(numPlayers, Trajectory{});
+
+		// R3maJ local patch: render-mode console status
+		Timer renderStatusTimer = {};
+		Timer renderStartTimer = {};
+		float lastBallTouchTime = -1.0f; // game time (s) of last ball touch, -1 = never
+		// R3maJ local patch: per-step event counters for render console
+		struct RenderEventCounters {
+			int goals=0, demos=0, demoed=0, shots=0, saves=0, touches=0, bumps=0;
+		} renderEvents;
 		int maxEpisodeLength = (int)(config.ppo.maxEpisodeDuration * (120.f / config.tickSkip));
 
 		while (true) {
@@ -655,10 +665,64 @@ void GGL::Learner::Start() {
 						if (stepCallback)
 							stepCallback(this, envSet->state.gameStates, report);
 
-						if (render) {
-							renderSender->Send(envSet->state.gameStates[0]);
-							continue;
-						}
+if (render) {
+		// Count discrete events this tick
+		{
+			const auto& gsEv = envSet->state.gameStates[0];
+			for (const auto& p : gsEv.players) {
+				if (p.ballTouchedStep) renderEvents.touches++;
+				if (p.eventState.goal) { renderEvents.goals++; }
+				if (p.eventState.save) renderEvents.saves++;
+				if (p.eventState.shot) renderEvents.shots++;
+				if (p.eventState.demo) renderEvents.demos++;
+				if (p.eventState.demoed) renderEvents.demoed++;
+				if (p.eventState.bumped) renderEvents.bumps++;
+			}
+			if (gsEv.goalScored) {
+				Team scorer = RS_TEAM_FROM_Y(gsEv.ball.pos.y);
+				// GoalReward gives to team != scorer-of-position; report the actual scoring team
+				RG_LOG("[Event] GOAL scored! Team " << (int)scorer << " | Step: " << stepsCollected);
+			}
+		}
+		renderSender->Send(envSet->state.gameStates[0]);
+
+		// R3maJ local patch: periodic live status + event summary
+		if (renderStatusTimer.Elapsed() >= 2.0) {
+			renderStatusTimer.Reset();
+
+			const auto& gs = envSet->state.gameStates[0];
+			float ballSpeed = gs.ball.vel.Length();
+			float gameTime = (float)gs.lastTickCount / 120.0f;
+
+			// update last-ball-touch (done every tick above would be better; track via touches count proxy)
+			if (renderEvents.touches > 0) lastBallTouchTime = gameTime;
+
+			std::stringstream renderStatus;
+			renderStatus << std::fixed << std::setprecision(1)
+				<< "[Render] Step: " << stepsCollected
+				<< " | GameTime: " << gameTime << "s"
+				<< " | BallSpd: " << ballSpeed;
+
+			for (const auto& p : gs.players) {
+				renderStatus << " | " << ((p.team == Team::BLUE) ? "B" : "O")
+					<< "[" << (int)p.boost << "]";
+			}
+
+			float noTouchTime = (lastBallTouchTime >= 0) ? (gameTime - lastBallTouchTime) : gameTime;
+			renderStatus << " | NoTouch: " << noTouchTime << "s";
+
+			// Events counted in this 2s window
+			renderStatus << " | Events: G=" << renderEvents.goals
+				<< " D=" << renderEvents.demos << " Dm=" << renderEvents.demoed
+				<< " Sh=" << renderEvents.shots << " Sv=" << renderEvents.saves
+				<< " T=" << renderEvents.touches << " B=" << renderEvents.bumps;
+			RG_LOG(renderStatus.str());
+
+			// reset counters for next window
+			renderEvents = RenderEventCounters{};
+		}
+		continue;
+	}
 
 						// Calc average rewards
 						if (config.addRewardsToMetrics && (Math::RandInt(0, config.rewardSampleRandInterval) == 0)) {

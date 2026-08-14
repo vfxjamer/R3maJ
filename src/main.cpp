@@ -1,8 +1,12 @@
-﻿#include <csignal>
+#include <csignal>
 #include <atomic>
 #include <cstring>
 #include <cstdlib>
 #include <algorithm>
+#include <cctype>
+#include <filesystem>
+#include <fstream>
+#include <string>
 #include <GigaLearnCPP/Learner.h>
 #include <RLGymCPP/TerminalConditions/GoalScoreCondition.h>
 #include <RLGymCPP/TerminalConditions/NoTouchCondition.h>
@@ -21,6 +25,11 @@ static std::atomic<bool> g_quitRequested(false);
 static GGL::Learner* g_learner = nullptr;
 static std::string g_replayPath;
 
+// Reward weights for the current run, resolved from totalTimesteps before the
+// Learner is constructed (envs are built before the checkpoint stats are loaded).
+static PhaseRewards g_rewards;
+static int64_t g_totalTimesteps = 0;
+
 void SignalHandler(int) {
 	g_quitRequested = true;
 }
@@ -28,6 +37,68 @@ void SignalHandler(int) {
 void SetupSignalHandlers() {
 	std::signal(SIGINT, SignalHandler);
 	std::signal(SIGTERM, SignalHandler);
+}
+
+// R3maJ: keypress detector disabled - no interactive key reads
+char GetPressedCharNoBlock() {
+	return 0;
+}
+
+// Minimal RUNNING_STATS.json parser: extracts the "total_timesteps" field.
+// (Kept dependency-free so main.cpp doesn't need nlohmann on its include path.)
+static int64_t FindTotalTimestepsInJson(const std::string& filePath) {
+	std::ifstream fIn(filePath);
+	if (!fIn.good())
+		return -1;
+	std::string text((std::istreambuf_iterator<char>(fIn)), std::istreambuf_iterator<char>());
+
+	const std::string key = "\"total_timesteps\"";
+	size_t pos = text.find(key);
+	if (pos == std::string::npos)
+		return -1;
+	pos = text.find(':', pos);
+	if (pos == std::string::npos)
+		return -1;
+
+	pos = text.find_first_not_of(" \t\r\n:", pos);
+	if (pos == std::string::npos)
+		return -1;
+	size_t end = pos;
+	int64_t value = 0;
+	bool any = false;
+	for (; end < text.size(); end++) {
+		char c = text[end];
+		if (c < '0' || c > '9') break;
+		value = value * 10 + (c - '0');
+		any = true;
+	}
+	return any ? value : -1;
+}
+
+// Reads the total timesteps stored in the most recent numbered checkpoint dir
+// (mirrors GGL::Learner::Load's "highest numbered dir" selection).
+static int64_t ReadCheckpointTotalTimesteps(const std::string& checkpointFolder) {
+	int64_t highest = -1;
+	std::error_code ec;
+	for (const auto& entry : std::filesystem::directory_iterator(checkpointFolder, ec)) {
+		if (ec) break;
+		if (!entry.is_directory())
+			continue;
+		const std::string name = entry.path().filename().string();
+		bool isNumber = !name.empty() && std::all_of(name.begin(), name.end(),
+			[](unsigned char c) { return std::isdigit(c) != 0; });
+		if (!isNumber)
+			continue;
+		int64_t ts = 0;
+		try { ts = std::stoll(name); } catch (...) { continue; }
+		highest = RS_MAX(highest, ts);
+	}
+	if (highest == -1)
+		return 0;
+
+	const std::string statsPath = (std::filesystem::path(checkpointFolder) / std::to_string(highest) / "RUNNING_STATS.json").string();
+	int64_t ts = FindTotalTimestepsInJson(statsPath);
+	return (ts >= 0) ? ts : highest;
 }
 
 RLGC::EnvCreateResult EnvCreateFunc(int index) {
@@ -40,104 +111,115 @@ RLGC::EnvCreateResult EnvCreateFunc(int index) {
 	auto stateSetter = g_replayPath.empty() ? new R3maJStateSetter() : new R3maJStateSetter(g_replayPath);
 
 	auto goalScore = new GoalScoreCondition();
-	auto noTouch = new NoTouchCondition(68);
+	auto noTouch = new NoTouchCondition(10);
 
-	// Necto-derived reward weights (identical across all phases)
-	constexpr float
-		GOAL_W = 10.f,
-		WIN_PROB_W = 10.f,
-		GOAL_DIST_W = 10.f,
-		GOAL_SPEED_BONUS_W = 2.5f,
-		GOAL_DIST_BONUS_W = 2.5f,
-		TOUCH_HEIGHT_W = 3.f,
-		TOUCH_ACCEL_W = 0.5f,
-		FLIP_RESET_W = 10.f,
-		DEMO_W = 8.f,
-		BOOST_GAIN_W = 1.5f,
-		BOOST_LOSE_W = 0.8f,
-		DIST_W = 0.25f,
-		ALIGN_W = 0.25f,
-		ANG_VEL_W = 0.005f,
-		TOUCH_GRASS_W = 0.005f,
-		OPPONENT_PUNISH_W = 1.f,
-		JUMP_TOUCH_W = 6.f,
-		WALL_TOUCH_W = 2.f,
-		AIR_DRIBBLE_W = 2.f,
-		CRADLE_W = 1.f;
+	// Curriculum-selected reward weights (from total timesteps via PhaseManager)
+	const PhaseRewards& R = g_rewards;
 
 	std::vector<WeightedReward> subRewards;
 
 	auto goalReward = new GoalReward();
-	subRewards.push_back({ goalReward, GOAL_W });
+	if (R.goal_w != 0.f)
+		subRewards.push_back({ goalReward, R.goal_w });
+	else
+		delete goalReward;
 
 	auto goalDistRaw = new GoalDistanceReward();
 	auto goalDistReward = new DeltaReward<GoalDistanceReward>(goalDistRaw);
-	subRewards.push_back({ goalDistReward, GOAL_DIST_W });
+	if (R.goal_dist_w != 0.f)
+		subRewards.push_back({ goalDistReward, R.goal_dist_w });
+	else
+		delete goalDistReward;
 
 	auto goalSpeedReward = new GoalSpeedBonusReward();
-	subRewards.push_back({ goalSpeedReward, GOAL_SPEED_BONUS_W });
+	if (R.goal_speed_bonus_w != 0.f)
+		subRewards.push_back({ goalSpeedReward, R.goal_speed_bonus_w });
+	else
+		delete goalSpeedReward;
 
 	auto goalDistBonusReward = new GoalDistBonusReward();
-	subRewards.push_back({ goalDistBonusReward, GOAL_DIST_BONUS_W });
+	if (R.goal_dist_bonus_w != 0.f)
+		subRewards.push_back({ goalDistBonusReward, R.goal_dist_bonus_w });
+	else
+		delete goalDistBonusReward;
 
 	auto touchHeightReward = new TouchHeightReward();
-	subRewards.push_back({ touchHeightReward, TOUCH_HEIGHT_W });
+	if (R.touch_height_w != 0.f)
+		subRewards.push_back({ touchHeightReward, R.touch_height_w });
+	else
+		delete touchHeightReward;
 
 	auto touchAccelReward = new NectoTouchAccelReward();
-	subRewards.push_back({ touchAccelReward, TOUCH_ACCEL_W });
+	if (R.touch_accel_w != 0.f)
+		subRewards.push_back({ touchAccelReward, R.touch_accel_w });
+	else
+		delete touchAccelReward;
 
-	if (WIN_PROB_W != 0.f) {
+	if (R.win_prob_w != 0.f) {
 		auto winProbReward = new WinProbReward(120, 8);
-		subRewards.push_back({ winProbReward, WIN_PROB_W });
+		subRewards.push_back({ winProbReward, R.win_prob_w });
 	}
 
-	if (FLIP_RESET_W != 0.f) {
+	if (R.flip_reset_w != 0.f) {
 		auto flipResetReward = new FlipResetReward();
-		subRewards.push_back({ flipResetReward, FLIP_RESET_W });
+		subRewards.push_back({ flipResetReward, R.flip_reset_w });
 	}
 
 	auto boostGainReward = new PickupBoostReward();
-	subRewards.push_back({ boostGainReward, BOOST_GAIN_W });
+	if (R.boost_gain_w != 0.f)
+		subRewards.push_back({ boostGainReward, R.boost_gain_w });
+	else
+		delete boostGainReward;
 
 	auto boostLoss = new BoostUsagePenalty();
-	subRewards.push_back({ boostLoss, BOOST_LOSE_W });
+	if (R.boost_lose_w != 0.f)
+		subRewards.push_back({ boostLoss, R.boost_lose_w });
+	else
+		delete boostLoss;
 
-	auto playerQuality = new PlayerQualityReward(DIST_W, ALIGN_W);
-	subRewards.push_back({ playerQuality, 1.0f });
+	auto playerQuality = new PlayerQualityReward(R.dist_w, R.align_w);
+	subRewards.push_back({ playerQuality, 1.0f }); // PlayerQuality = 1.0
 
+	// R3maJ: demo weight applied to DemoReward (single split, no demoed penalty)
 	auto demoReward = new RLGC::DemoReward();
-	subRewards.push_back({ demoReward, DEMO_W * 0.5f });
-
-	auto demoedPenalty = new RLGC::DemoedPenalty();
-	subRewards.push_back({ demoedPenalty, DEMO_W * 0.5f });
+	if (R.demo_w != 0.f)
+		subRewards.push_back({ demoReward, R.demo_w });
+	else
+		delete demoReward;
 
 	auto angVelReward = new AngVelReward();
-	subRewards.push_back({ angVelReward, ANG_VEL_W });
+	if (R.ang_vel_w != 0.f)
+		subRewards.push_back({ angVelReward, R.ang_vel_w });
+	else
+		delete angVelReward;
 
 	auto groundIdle = new GroundIdlePenalty();
-	subRewards.push_back({ groundIdle, TOUCH_GRASS_W });
+	if (R.touch_grass_w != 0.f)
+		subRewards.push_back({ groundIdle, R.touch_grass_w });
+	else
+		delete groundIdle;
 
-	if (JUMP_TOUCH_W != 0.f) {
+	if (R.jump_touch_w != 0.f) {
 		auto jumpTouchReward = new JumpTouchReward();
-		subRewards.push_back({ jumpTouchReward, JUMP_TOUCH_W });
+		subRewards.push_back({ jumpTouchReward, R.jump_touch_w });
 	}
 
-	if (WALL_TOUCH_W != 0.f) {
+	if (R.wall_touch_w != 0.f) {
 		auto wallTouchReward = new WallTouchReward();
-		subRewards.push_back({ wallTouchReward, WALL_TOUCH_W });
+		subRewards.push_back({ wallTouchReward, R.wall_touch_w });
 	}
 
-	if (AIR_DRIBBLE_W != 0.f) {
+	if (R.air_dribble_w != 0.f) {
 		auto airDribbleReward = new AirDribbleReward();
-		subRewards.push_back({ airDribbleReward, AIR_DRIBBLE_W });
+		subRewards.push_back({ airDribbleReward, R.air_dribble_w });
 	}
 
-	if (CRADLE_W != 0.f) {
+	if (R.cradle_w != 0.f) {
 		auto cradleReward = new CradleReward();
-		subRewards.push_back({ cradleReward, CRADLE_W });
+		subRewards.push_back({ cradleReward, R.cradle_w });
 	}
 
-	auto allRewards = new AllRewardsWrapper(subRewards, OPPONENT_PUNISH_W);
+	auto allRewards = new AllRewardsWrapper(subRewards, R.opponent_punish_w);
 
 	std::vector<WeightedReward> rewards = {
 		{ allRewards, 1.0f }
@@ -209,7 +291,7 @@ static void PrintUsage(const char* progName) {
 	RG_LOG("  --device <type>   Device type: cpu, cuda (default: cpu)");
 	RG_LOG("  --games <n>       Number of parallel games (default: 32)");
 	RG_LOG("  --save-dir <dir>  Checkpoint save/load directory (default: checkpoints)");
-	RG_LOG("  --phase <n>       Start at phase index 0-3 (default: 0)");
+	RG_LOG("  --phase <n>       Force phase index 0-3 (default: auto from checkpoint timesteps)");
 	RG_LOG("  --replays <path>  Binary replay file for state initialization");
 }
 
@@ -217,7 +299,7 @@ int main(int argc, char* argv[]) {
 	SetupSignalHandlers();
 
 	// Parse CLI args
-	int phaseIdx = 0;
+	int phaseIdx = -1; // -1 = auto-select from totalTimesteps
 	std::string resumeDir;
 	std::string deviceStr = "cpu";
 	std::string saveDir = "checkpoints";
@@ -250,12 +332,18 @@ int main(int argc, char* argv[]) {
 
 	RocketSim::Init("collision_meshes");
 
+	// Resolve phase from total timesteps (resume checkpoint wins, else fresh run at 0).
+	std::string checkpointFolder = !resumeDir.empty() ? resumeDir : saveDir;
+	g_totalTimesteps = ReadCheckpointTotalTimesteps(checkpointFolder);
+
+	if (phaseIdx == -1)
+		phaseIdx = g_PhaseManager.GetCurrentPhase(g_totalTimesteps);
+
+	g_rewards = g_PhaseManager.GetRewards(g_totalTimesteps);
+
 	LearnerConfig cfg = g_PhaseManager.MakeLearnerConfig(phaseIdx);
 
-	if (!resumeDir.empty())
-		cfg.checkpointFolder = resumeDir;
-	else if (saveDir != "checkpoints")
-		cfg.checkpointFolder = saveDir;
+	cfg.checkpointFolder = checkpointFolder;
 
 	if (deviceStr == "cuda")
 		cfg.deviceType = GGL::LearnerDeviceType::GPU_CUDA;
@@ -273,7 +361,8 @@ int main(int argc, char* argv[]) {
 
 	RG_LOG(RG_DIVIDER);
 	RG_LOG("=== R3maJ v1 ===");
-	RG_LOG("  Phase: " << (phaseIdx + 1) << "/4");
+	RG_LOG("  Timesteps: " << g_totalTimesteps);
+	RG_LOG("  Phase: " << (phaseIdx + 1) << "/4 (auto-selected from timesteps)");
 	const auto& phaseCfg = g_PhaseManager.GetPhaseConfig(phaseIdx);
 	RG_LOG("  Steps: " << phaseCfg.startStep << " - " << phaseCfg.endStep);
 	RG_LOG("  Device: " << (deviceStr == "cuda" ? "CUDA" : "CPU"));
@@ -288,7 +377,22 @@ int main(int argc, char* argv[]) {
 	RG_LOG("  MiniBatch: " << cfg.ppo.miniBatchSize);
 	RG_LOG("  Checkpoints: " << cfg.checkpointFolder);
 	RG_LOG("  State Init: R3maJMultiModal (Kickoff/Ground/Goalie/Aerial/Wall/Dribble)");
-	RG_LOG("  Press Q to quit");
+	RG_LOG("  Rewards: goal=" << g_rewards.goal_w
+		<< " winprob=" << g_rewards.win_prob_w
+		<< " goaldist=" << g_rewards.goal_dist_w
+		<< " speedbonus=" << g_rewards.goal_speed_bonus_w
+		<< " touchheight=" << g_rewards.touch_height_w
+		<< " touchaccel=" << g_rewards.touch_accel_w
+		<< " boostgain=" << g_rewards.boost_gain_w
+		<< " boostlose=" << g_rewards.boost_lose_w
+		<< " demo=" << g_rewards.demo_w
+		<< " flipreset=" << g_rewards.flip_reset_w
+		<< " jungtouch=" << g_rewards.jump_touch_w
+		<< " walltouch=" << g_rewards.wall_touch_w
+		<< " airdribble=" << g_rewards.air_dribble_w
+		<< " cradle=" << g_rewards.cradle_w
+		<< " angvel=" << g_rewards.ang_vel_w
+		<< " opppunish=" << g_rewards.opponent_punish_w);
 
 	Learner* learner = new Learner(EnvCreateFunc, cfg, StepCallback);
 	g_learner = learner;
