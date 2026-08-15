@@ -6,39 +6,50 @@
 
 using namespace RLGC;
 
-// Exact early-stage guide helper: reward velocity toward the ball.
-// Equivalent to the guide's SpeedTowardBallReward() in RLGym-PPO.
+// Guide-exact SpeedTowardBallReward(): only positive velocity toward the ball
+// is rewarded; moving away returns 0 (not a penalty).
 class SpeedTowardBallReward : public Reward {
 public:
     virtual float GetReward(const Player& player, const GameState& state, bool isFinal) override {
-        Vec dirToBall = (state.ball.pos - player.pos).Normalized();
-        Vec normVel = player.vel / CommonValues::CAR_MAX_SPEED;
-        return dirToBall.Dot(normVel);
+        Vec posDiff = state.ball.pos - player.pos;
+        float distToBall = posDiff.Length();
+        if (distToBall <= 0.f)
+            return 0.f;
+
+        Vec dirToBall = posDiff / distToBall;
+        float speedTowardBall = player.vel.Dot(dirToBall);
+        if (speedTowardBall <= 0.f)
+            return 0.f;
+
+        return speedTowardBall / CommonValues::CAR_MAX_SPEED;
     }
 };
 
-// Guide scoring-stage helper: reward the ball's velocity toward the opponent goal.
+// Guide-exact VelocityBallToGoalReward(): reward only positive ball velocity
+// toward the opponent goal, normalized by BALL_MAX_SPEED.
 class VelocityBallToGoalReward : public Reward {
 public:
     virtual float GetReward(const Player& player, const GameState& state, bool isFinal) override {
-        Vec targetGoal = (player.team == Team::BLUE)
-            ? CommonValues::ORANGE_GOAL_BACK
-            : CommonValues::BLUE_GOAL_BACK;
-        Vec dirToGoal = (targetGoal - state.ball.pos).Normalized();
-        Vec normBallVel = state.ball.vel / CommonValues::BALL_MAX_SPEED;
-        return dirToGoal.Dot(normBallVel);
+        float goalY = (player.team == Team::ORANGE)
+            ? -CommonValues::BACK_NET_Y
+            : CommonValues::BACK_NET_Y;
+
+        Vec posDiff = Vec(0.f, goalY, 0.f) - state.ball.pos;
+        float dist = posDiff.Length();
+        if (dist <= 0.f)
+            return 0.f;
+
+        Vec dirToGoal = posDiff / dist;
+        float velTowardGoal = state.ball.vel.Dot(dirToGoal);
+        if (velTowardGoal <= 0.f)
+            return 0.f;
+
+        return velTowardGoal / CommonValues::BALL_MAX_SPEED;
     }
 };
 
-// Guide scoring-stage equivalent of EventReward(team_goal=1, concede=-1).
-class GoalEventReward : public Reward {
-public:
-    virtual float GetReward(const Player& player, const GameState& state, bool isFinal) override {
-        if (!state.goalScored) return 0.f;
-        Team scoringTeam = RS_TEAM_FROM_Y(state.ball.pos.y);
-        return (player.team == scoringTeam) ? 1.f : -1.f;
-    }
-};
+// Goal scoring is provided by RLGymCPP's native EventReward directly in
+// R3maJ.h, matching EventReward(team_goal=1, concede=-1).
 
 // ============================================================
 // DeltaReward — wraps any reward to output stepwise deltas
