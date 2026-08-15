@@ -68,32 +68,33 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     arena->AddCar(Team::ORANGE, CAR_CONFIG_OCTANE);
 
     // ============================================================
-    // PHASE 1 / EARLY STAGE — EXACT GUIDE REWARD STACK
+    // SCORING STAGE — RLGym-PPO GUIDE REWARD STACK
     //
-    // EventReward(touch=1), 50
-    // SpeedTowardBallReward(), 5
-    // FaceBallReward(), 1
-    // AirReward(), 0.15
+    // EventReward(team_goal=1, concede=-1), 20
+    // VelocityBallToGoalReward(), 2
+    // SpeedTowardBallReward(), 1
+    // FaceBallReward(), 0.1
     //
-    // No goal/scoring/goal-distance rewards are used here. The guide
-    // explicitly recommends learning reliable ball contact first.
-    // SimpleTouchReward is the local C++ equivalent of EventReward(touch=1).
+    // The early-stage touch and air rewards are intentionally removed.
+    // The bot has already demonstrated reliable ball contact/dribbling,
+    // so the objective now shifts from "touch the ball" to "score".
     // ============================================================
     std::vector<WeightedReward> components;
     components.reserve(4);
-    components.emplace_back(new SimpleTouchReward(), 50.f);
-    components.emplace_back(new SpeedTowardBallReward(), 5.f);
-    components.emplace_back(new FaceBallReward(), 1.f);
-    components.emplace_back(new AirReward(), 0.15f);
+    components.emplace_back(new GoalEventReward(), 20.f);
+    components.emplace_back(new VelocityBallToGoalReward(), 2.f);
+    components.emplace_back(new SpeedTowardBallReward(), 1.f);
+    components.emplace_back(new FaceBallReward(), 0.1f);
 
     auto* combined = new AllRewardsWrapper(components, 0.f);
     std::vector<WeightedReward> rewards = { WeightedReward(combined, 1.f) };
 
-    // Goals still terminate an episode; there is deliberately no goal reward
-    // in this early-stage reward function.
+    // Goals still terminate an episode. No-touch timeout remains as the
+    // anti-idle condition, while the reward itself now explicitly values
+    // scoring and moving the ball toward the opponent goal.
     std::vector<TerminalCondition*> terminals = {
         new GoalScoreCondition(),
-        new NoTouchCondition(10)    // R3maJ: guide-matching 10s no-touch timeout (NoTouchTimeoutCondition default)
+        new NoTouchCondition(10)
     };
 
     auto* obsBuilder = new R3maJOBS(120.f);
