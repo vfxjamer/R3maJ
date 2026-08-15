@@ -86,13 +86,13 @@ int main(int argc, char* argv[]) {
     cfg.sendMetrics = false;
 
     RG_LOG(RG_DIVIDER);
-    RG_LOG("=== R3maJ v2 — Headless Training ===");
+    RG_LOG((cfg.renderMode ? (const char*)"=== R3maJ v2 — Renderer ===" : (const char*)"=== R3maJ v2 — Headless Training ==="));
     RG_LOG("  Timesteps at start: " << g_totalTimesteps);
     RG_LOG("  Phase: " << (phaseIdx + 1) << "/4");
     const auto& phaseCfg = g_PhaseManager.GetPhaseConfig(phaseIdx);
     RG_LOG("  Phase range: " << phaseCfg.startStep << " - " << phaseCfg.endStep);
     RG_LOG("  Device: " << (deviceStr == "cuda" ? "CUDA" : "CPU"));
-    RG_LOG("  Games: " << cfg.numGames);
+    RG_LOG("  Games: " << (cfg.renderMode ? 1 : cfg.numGames) << (cfg.renderMode ? " (render mode)" : ""));
     RG_LOG("  Tick Skip: " << cfg.tickSkip);
     RG_LOG("  Action Delay: " << cfg.actionDelay);
     RG_LOG("  Network: shared 512x2 -> policy/critic 512x6");

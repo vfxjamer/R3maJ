@@ -62,7 +62,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         NULL,
         NULL,
         FALSE,
-        CREATE_NO_WINDOW,
+        CREATE_NEW_CONSOLE,  // R3maJ: give the trainer its own cmd window so it posts its status live
         NULL,
         dir.c_str(),
         &si,

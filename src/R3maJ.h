@@ -93,7 +93,7 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     // in this early-stage reward function.
     std::vector<TerminalCondition*> terminals = {
         new GoalScoreCondition(),
-        new NoTouchCondition(120 * 120 / 8)
+        new NoTouchCondition(10)    // R3maJ: guide-matching 10s no-touch timeout (NoTouchTimeoutCondition default)
     };
 
     auto* obsBuilder = new R3maJOBS(120.f);

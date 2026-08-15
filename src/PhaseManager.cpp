@@ -112,13 +112,13 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
     cfg.metricsGroupName="phases";
     cfg.metricsRunName="R3maJ p1 training";
     cfg.randomSeed=-1;
-    cfg.renderMode=false;
+    cfg.renderMode=false; // R3maJ repo: headless training (Colab/Kaggle). Local WatchPC build overrides to true.
 
     auto& ppo=cfg.ppo;
     ppo.tsPerItr=batch;
     ppo.batchSize=batch;
     ppo.miniBatchSize=batch/10;
-    ppo.epochs=15;
+    ppo.epochs=5; // R3maJ: guide recommends 2-3; 5 is a compromise between learning quality and SPS
     ppo.gaeLambda=0.95f;
     ppo.gaeGamma=p.gamma;
     ppo.entropyScale=p.entropyScale;
