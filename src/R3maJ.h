@@ -68,7 +68,7 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     arena->AddCar(Team::ORANGE, CAR_CONFIG_OCTANE);
 
     // ============================================================
-    // SCORING STAGE — RLGym-PPO GUIDE REWARD STACK
+    // SCORING STAGE — exact RLGym-PPO Guide reward stack
     //
     // EventReward(team_goal=1, concede=-1), 20
     // VelocityBallToGoalReward(), 2
@@ -76,12 +76,11 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     // FaceBallReward(), 0.1
     //
     // The early-stage touch and air rewards are intentionally removed.
-    // The bot has already demonstrated reliable ball contact/dribbling,
-    // so the objective now shifts from "touch the ball" to "score".
     // ============================================================
     std::vector<WeightedReward> components;
     components.reserve(4);
-    components.emplace_back(new GoalEventReward(), 20.f);
+    components.emplace_back(
+        new EventReward({ .teamGoal = 1.f, .concede = -1.f }), 20.f);
     components.emplace_back(new VelocityBallToGoalReward(), 2.f);
     components.emplace_back(new SpeedTowardBallReward(), 1.f);
     components.emplace_back(new FaceBallReward(), 0.1f);
@@ -90,8 +89,8 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     std::vector<WeightedReward> rewards = { WeightedReward(combined, 1.f) };
 
     // Goals still terminate an episode. No-touch timeout remains as the
-    // anti-idle condition, while the reward itself now explicitly values
-    // scoring and moving the ball toward the opponent goal.
+    // anti-idle condition, while the reward now explicitly values scoring
+    // and moving the ball toward the opponent goal.
     std::vector<TerminalCondition*> terminals = {
         new GoalScoreCondition(),
         new NoTouchCondition(10)
