@@ -17,6 +17,29 @@ public:
     }
 };
 
+// Guide scoring-stage helper: reward the ball's velocity toward the opponent goal.
+class VelocityBallToGoalReward : public Reward {
+public:
+    virtual float GetReward(const Player& player, const GameState& state, bool isFinal) override {
+        Vec targetGoal = (player.team == Team::BLUE)
+            ? CommonValues::ORANGE_GOAL_BACK
+            : CommonValues::BLUE_GOAL_BACK;
+        Vec dirToGoal = (targetGoal - state.ball.pos).Normalized();
+        Vec normBallVel = state.ball.vel / CommonValues::BALL_MAX_SPEED;
+        return dirToGoal.Dot(normBallVel);
+    }
+};
+
+// Guide scoring-stage equivalent of EventReward(team_goal=1, concede=-1).
+class GoalEventReward : public Reward {
+public:
+    virtual float GetReward(const Player& player, const GameState& state, bool isFinal) override {
+        if (!state.goalScored) return 0.f;
+        Team scoringTeam = RS_TEAM_FROM_Y(state.ball.pos.y);
+        return (player.team == scoringTeam) ? 1.f : -1.f;
+    }
+};
+
 // ============================================================
 // DeltaReward — wraps any reward to output stepwise deltas
 // ============================================================
