@@ -9,6 +9,7 @@
 #include <GigaLearnCPP/Learner.h>
 #include <GigaLearnCPP/Util/Report.h>
 #include <RLGymCPP/ActionParsers/DefaultAction.h>
+#include <RLGymCPP/Rewards/CommonRewards.h>
 #include <RLGymCPP/TerminalConditions/GoalScoreCondition.h>
 #include <RLGymCPP/TerminalConditions/NoTouchCondition.h>
 
@@ -68,29 +69,27 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     arena->AddCar(Team::ORANGE, CAR_CONFIG_OCTANE);
 
     // ============================================================
-    // SCORING STAGE — exact RLGym-PPO Guide reward stack
+    // SCORING STAGE — RLGym-PPO Guide reward stack
     //
     // EventReward(team_goal=1, concede=-1), 20
     // VelocityBallToGoalReward(), 2
     // SpeedTowardBallReward(), 1
     // FaceBallReward(), 0.1
     //
-    // The early-stage touch and air rewards are intentionally removed.
+    // RLGymCPP exposes the equivalent native GoalReward and its native
+    // VelocityBallToGoalReward. These are used directly instead of inventing
+    // incompatible EventReward/VelocityBallToGoalReward types.
     // ============================================================
     std::vector<WeightedReward> components;
     components.reserve(4);
-    components.emplace_back(
-        new EventReward({ .teamGoal = 1.f, .concede = -1.f }), 20.f);
-    components.emplace_back(new VelocityBallToGoalReward(), 2.f);
-    components.emplace_back(new SpeedTowardBallReward(), 1.f);
+    components.emplace_back(new GoalReward(-1.f), 20.f);
+    components.emplace_back(new RLGC::VelocityBallToGoalReward(), 2.f);
+    components.emplace_back(new RLGC::VelocityPlayerToBallReward(), 1.f);
     components.emplace_back(new FaceBallReward(), 0.1f);
 
     auto* combined = new AllRewardsWrapper(components, 0.f);
     std::vector<WeightedReward> rewards = { WeightedReward(combined, 1.f) };
 
-    // Goals still terminate an episode. No-touch timeout remains as the
-    // anti-idle condition, while the reward now explicitly values scoring
-    // and moving the ball toward the opponent goal.
     std::vector<TerminalCondition*> terminals = {
         new GoalScoreCondition(),
         new NoTouchCondition(10)
