@@ -63,29 +63,42 @@ inline uint64_t ReadCheckpointTotalTimesteps(const std::string& folder) {
     return best;
 }
 
+// Guide-exact AirReward from rewards.md:
+// reward 1 while airborne, otherwise 0.
+class GuideAirReward final : public Reward {
+public:
+    float GetReward(const Player& player, const GameState& state, bool isFinal) override {
+        return player.isOnGround ? 0.f : 1.f;
+    }
+};
+
 inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     Arena* arena = Arena::Create(GameMode::SOCCAR);
     arena->AddCar(Team::BLUE, CAR_CONFIG_OCTANE);
     arena->AddCar(Team::ORANGE, CAR_CONFIG_OCTANE);
 
     // ============================================================
-    // SCORING STAGE — RLGym-PPO Guide reward stack
+    // PHASE 1.1 — RLGym-PPO Guide scoring curriculum
     //
-    // EventReward(team_goal=1, concede=-1), 20
-    // VelocityBallToGoalReward(), 2
-    // SpeedTowardBallReward(), 1
+    // TouchReward(), 10
+    // GoalReward(team_goal=1, concede=-1), 40
+    // Guide-exact VelocityBallToGoalReward(), 2
+    // Guide-exact SpeedTowardBallReward(), 1
     // FaceBallReward(), 0.1
+    // Guide-exact AirReward(), 0.15
     //
-    // RLGymCPP exposes the equivalent native GoalReward and its native
-    // VelocityBallToGoalReward. These are used directly instead of inventing
-    // incompatible EventReward/VelocityBallToGoalReward types.
+    // The guide's SpeedTowardBallReward is deliberately used instead of
+    // VelocityPlayerToBallReward: it only rewards positive velocity toward
+    // the ball and never penalizes moving away.
     // ============================================================
     std::vector<WeightedReward> components;
-    components.reserve(4);
-    components.emplace_back(new GoalReward(-1.f), 20.f);
+    components.reserve(6);
+    components.emplace_back(new SimpleTouchReward(), 10.f);
+    components.emplace_back(new GoalReward(-1.f), 40.f);
     components.emplace_back(new RLGC::VelocityBallToGoalReward(), 2.f);
-    components.emplace_back(new RLGC::VelocityPlayerToBallReward(), 1.f);
+    components.emplace_back(new SpeedTowardBallReward(), 1.f);
     components.emplace_back(new FaceBallReward(), 0.1f);
+    components.emplace_back(new GuideAirReward(), 0.15f);
 
     auto* combined = new AllRewardsWrapper(components, 0.f);
     std::vector<WeightedReward> rewards = { WeightedReward(combined, 1.f) };
