@@ -80,7 +80,7 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     // ============================================================
     // PHASE 1.1 — RLGym-PPO Guide scoring curriculum
     //
-    // TouchReward(), 20
+    // TouchReward(), 40
     // GoalReward(team_goal=1, concede=-1), 50
     // Guide-exact VelocityBallToGoalReward(), 2
     // Guide-exact SpeedTowardBallReward(), 7
@@ -93,7 +93,7 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     // ============================================================
     std::vector<WeightedReward> components;
     components.reserve(6);
-    components.emplace_back(new SimpleTouchReward(), 20.f);
+    components.emplace_back(new SimpleTouchReward(), 40.f);
     components.emplace_back(new GoalReward(-1.f), 50.f);
     components.emplace_back(new RLGC::VelocityBallToGoalReward(), 2.f);
     components.emplace_back(new SpeedTowardBallReward(), 7.f);
