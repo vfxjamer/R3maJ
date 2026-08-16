@@ -95,7 +95,7 @@ PhaseRewards PhaseManager::GetRewards(int64_t totalTimesteps) const {
 GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
     const auto& p=_phases[phaseIdx];
     GGL::LearnerConfig cfg={};
-    static const int64_t SCALED_BATCH[4]={100'000,200'000,300'000,400'000};
+    static const int64_t SCALED_BATCH[4]={50'000,150'000,300'000,400'000};
     const int64_t batch=SCALED_BATCH[RS_CLAMP(phaseIdx,0,3)];
     cfg.numGames=96;
     cfg.tickSkip=8;
