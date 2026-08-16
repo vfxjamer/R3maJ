@@ -79,35 +79,27 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     arena->AddCar(Team::ORANGE, CAR_CONFIG_OCTANE);
 
     // ============================================================
-    // PHASE 1.1 — RLGym-PPO Guide rewards (scoring curriculum)
+    // STAGE 1 — RLGym-PPO Guide reward stack (guide-exact)
     //
-    // SimpleTouchReward(), 25
-    // GoalReward(team_goal=1, concede=-1), 50
-    // NectoTouchAccelReward(), 10   (guide "better ball-touch reward":
-    //                                 reward scales with ball velocity change
-    //                                 on contact -> strong hits rewarded hard)
-    // VelocityBallToGoalReward(), 10 (guide: continuous scoring encouragement,
-    //                                 a fair bit stronger than SpeedTowardBall)
-    // Guide-exact SpeedTowardBallReward(), 5
-    // FaceBallReward(), 1
-    // Guide-exact AirReward(), 0.15
+    // EventReward(touch=1)          x50
+    // SpeedTowardBallReward()       x5
+    // FaceBallReward()              x1
+    // AirReward()                   x0.15
     //
-    // The guide's SpeedTowardBallReward is deliberately used instead of
-    // VelocityPlayerToBallReward: it only rewards positive velocity toward
-    // the ball and never penalizes moving away.
+    // SimpleTouchReward is our EventReward(touch=1) equivalent: fires once
+    // per step where the player touches the ball. SpeedTowardBallReward only
+    // rewards positive velocity toward the ball (never penalizes moving
+    // away). AirReward rewards 1 while airborne, else 0. No zero-sum
+    // opponent punish in this stage (guide-exact).
     // ============================================================
     std::vector<WeightedReward> components;
-    components.reserve(7);
+    components.reserve(4);
     components.emplace_back(new SimpleTouchReward(), 50.f);
-    components.emplace_back(new GoalReward(-1.f), 50.f);
-    components.emplace_back(new NectoTouchAccelReward(), 10.f);
-    components.emplace_back(new RLGC::VelocityBallToGoalReward(), 10.f);
     components.emplace_back(new SpeedTowardBallReward(), 5.f);
     components.emplace_back(new FaceBallReward(), 1.f);
     components.emplace_back(new GuideAirReward(), 0.15f);
-    // R3maJ: scoring curriculum + hit-the-ball-hard (NectoTouchAccel x10)
 
-    auto* combined = new AllRewardsWrapper(components, g_rewards.opponent_punish_w);
+    auto* combined = new AllRewardsWrapper(components, 0.f);
     g_activeRewardsWrapper = combined;
     std::vector<WeightedReward> rewards = { WeightedReward(combined, 1.f) };
 

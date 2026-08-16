@@ -8,8 +8,8 @@
 #include "PhaseManager.h"
 #include "R3maJRewards.h"
 
-static const char* const kComponentNames[7] = {
-    "touch", "goal", "accel", "vtg", "speed", "face", "air"
+static const char* const kComponentNames[4] = {
+    "touch", "speed", "face", "air"
 };
 
 // Adds R3maJ-specific metrics (per-component reward averages, goal rates,
@@ -23,7 +23,7 @@ inline void AddR3maJMetrics(GGL::Report& report, AllRewardsWrapper* wrapper, con
     if (m.steps <= 0)
         return;
 
-    for (size_t i = 0; i < m.components.size() && i < 7; i++)
+    for (size_t i = 0; i < m.components.size() && i < 4; i++)
         report[(std::string("Reward/") + kComponentNames[i]).c_str()] =
             m.components[i] / (double)m.steps;
 
