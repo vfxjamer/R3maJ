@@ -380,8 +380,8 @@ float CradleReward::GetReward(const Player& player, const GameState& state, bool
 }
 
 // ---- AllRewardsWrapper ----
-AllRewardsWrapper::AllRewardsWrapper(const std::vector<WeightedReward>& rewards, float opponentPunishW)
-	: _rewards(rewards), _opponentPunishW(opponentPunishW) {}
+AllRewardsWrapper::AllRewardsWrapper(const std::vector<WeightedReward>& rewards, float opponentPunishW, float teamSpirit)
+	: _rewards(rewards), _opponentPunishW(opponentPunishW), _teamSpirit(teamSpirit) {}
 
 AllRewardsWrapper::~AllRewardsWrapper() {
 	for (auto& wr : _rewards)
@@ -447,8 +447,10 @@ std::vector<float> AllRewardsWrapper::GetAllRewards(const GameState& state, bool
 		}
 	}
 
-	// Apply opponent punish
-	if (_opponentPunishW != 0) {
+	// Apply opponent punish (rlgym-sim ZeroSumReward semantics):
+	//   reward = individual * (1-team_spirit) + avg_team * team_spirit
+	//            - avg_opp * opp_scale
+	if (_opponentPunishW != 0 || _teamSpirit != 0) {
 		float teamAvgs[2] = {};
 		int teamCounts[2] = {};
 		for (int i = 0; i < (int)state.players.size(); i++) {
@@ -456,12 +458,20 @@ std::vector<float> AllRewardsWrapper::GetAllRewards(const GameState& state, bool
 			teamCounts[t]++;
 			teamAvgs[t] += rewards[i];
 		}
-		if (teamCounts[0] > 0) teamAvgs[0] /= teamCounts[0];
-		if (teamCounts[1] > 0) teamAvgs[1] /= teamCounts[1];
+		for (int t = 0; t < 2; t++) {
+			if (teamCounts[t] == 0) {
+				teamAvgs[t] = 0.f;
+			} else {
+				teamAvgs[t] /= (float)teamCounts[t];
+			}
+		}
 
 		for (int i = 0; i < (int)state.players.size(); i++) {
 			int t = (int)state.players[i].team;
-			rewards[i] -= _opponentPunishW * teamAvgs[1 - t];
+			rewards[i] =
+				rewards[i] * (1.f - _teamSpirit)
+				+ teamAvgs[t] * _teamSpirit
+				- teamAvgs[1 - t] * _opponentPunishW;
 		}
 	}
 

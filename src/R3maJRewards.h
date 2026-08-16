@@ -179,6 +179,7 @@ public:
 class AllRewardsWrapper : public Reward {
     std::vector<WeightedReward> _rewards;
     float _opponentPunishW;
+    float _teamSpirit;
 
     std::vector<double> _accComponents;
     int64_t _accSteps = 0;
@@ -192,7 +193,12 @@ public:
         double goalsConceded = 0;
     };
 
-    AllRewardsWrapper(const std::vector<WeightedReward>& rewards, float opponentPunishW);
+    // Mirrors rlgym-sim's ZeroSumReward():
+    //   reward = individual * (1 - team_spirit)
+    //          + avg_team_reward * team_spirit
+    //          - avg_opp_reward * opp_scale
+    // where opponentPunishW plays the role of opp_scale.
+    AllRewardsWrapper(const std::vector<WeightedReward>& rewards, float opponentPunishW, float teamSpirit = 0.f);
     virtual ~AllRewardsWrapper();
     virtual void Reset(const GameState& initialState) override;
     virtual void PreStep(const GameState& state) override;
