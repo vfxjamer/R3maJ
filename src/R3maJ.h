@@ -81,6 +81,7 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     // PHASE 1.1 — RLGym-PPO Guide early-stage rewards + hit-the-ball-hard
     //
     // SimpleTouchReward(), 50
+    // GoalReward(team_goal=1, concede=-1), 100
     // NectoTouchAccelReward(), 10   (guide "better ball-touch reward":
     //                                 reward scales with ball velocity change
     //                                 on contact -> strong hits rewarded hard)
@@ -88,16 +89,17 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     // FaceBallReward(), 1
     // Guide-exact AirReward(), 0.15
     //
-    // No GoalReward / VelocityBallToGoalReward: the guide recommends keeping
-    // scoring rewards out of the early stage to avoid reward noise.
+    // The guide recommends keeping scoring rewards out of the early stage;
+    // GoalReward(100) is deliberately strong here per project preference.
     //
     // The guide's SpeedTowardBallReward is deliberately used instead of
     // VelocityPlayerToBallReward: it only rewards positive velocity toward
     // the ball and never penalizes moving away.
     // ============================================================
     std::vector<WeightedReward> components;
-    components.reserve(5);
+    components.reserve(6);
     components.emplace_back(new SimpleTouchReward(), 50.f);
+    components.emplace_back(new GoalReward(-1.f), 100.f);
     components.emplace_back(new NectoTouchAccelReward(), 10.f);
     components.emplace_back(new SpeedTowardBallReward(), 5.f);
     components.emplace_back(new FaceBallReward(), 1.f);
