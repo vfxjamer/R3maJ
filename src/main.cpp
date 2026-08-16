@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
         cfg.numGames = numGames;
     g_requestedGames = cfg.numGames;
 
-    cfg.sendMetrics = false;
+    cfg.sendMetrics = true; // R3maJ: native W&B training metrics (policy loss, reward, steps, ...)
 
     RG_LOG(RG_DIVIDER);
     RG_LOG((cfg.renderMode ? (const char*)"=== R3maJ v2 — Renderer ===" : (const char*)"=== R3maJ v2 — Headless Training ==="));
@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
     RG_LOG("  Gamma: " << phaseCfg.gamma);
     RG_LOG("  Entropy: " << phaseCfg.entropyScale);
     RG_LOG("  MiniBatch: " << cfg.ppo.miniBatchSize);
-    RG_LOG("  W&B native metrics: DISABLED");
+    RG_LOG("  W&B native metrics: ENABLED");
     RG_LOG("  Checkpoints: " << cfg.checkpointFolder);
     RG_LOG("  Replay source: " << (g_replayPath.empty() ? "default state setter" : g_replayPath));
 
@@ -139,7 +139,7 @@ int main(int argc, char* argv[]) {
 
     RG_LOG("  Actions: " << learner->numActions);
     RG_LOG("  Obs Size: " << learner->obsSize);
-    RG_LOG("  Native W&B telemetry: DISABLED");
+    RG_LOG("  Native W&B telemetry: ENABLED");
     RG_LOG(RG_DIVIDER);
 
     learner->Start();

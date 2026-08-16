@@ -139,7 +139,9 @@ inline void StepCallback(Learner* /*learner*/, const std::vector<GameState>& sta
     double ballHeight = 0.0;
     double ballAngularSpeed = 0.0;
     double playerSpeed = 0.0;
+    double playerBoost = 0.0;
     uint64_t playerCount = 0;
+    uint64_t airCount = 0;
 
     for (const auto& state : states) {
         ballSpeed += state.ball.vel.Length();
@@ -148,6 +150,9 @@ inline void StepCallback(Learner* /*learner*/, const std::vector<GameState>& sta
 
         for (const auto& player : state.players) {
             playerSpeed += player.vel.Length();
+            playerBoost += player.boost;
+            if (!player.isOnGround)
+                ++airCount;
             ++playerCount;
         }
     }
@@ -157,6 +162,10 @@ inline void StepCallback(Learner* /*learner*/, const std::vector<GameState>& sta
     report.AddAvg("ball/height", ballHeight * invStates);
     report.AddAvg("ball/angular_speed", ballAngularSpeed * invStates);
 
-    if (playerCount > 0)
-        report.AddAvg("player/speed", playerSpeed / static_cast<double>(playerCount));
+    if (playerCount > 0) {
+        const double invPlayers = 1.0 / static_cast<double>(playerCount);
+        report.AddAvg("player/speed", playerSpeed * invPlayers);
+        report.AddAvg("player/boost", playerBoost * invPlayers);
+        report.AddAvg("player/air_fraction", static_cast<double>(airCount) * invPlayers);
+    }
 }
