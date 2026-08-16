@@ -29,6 +29,8 @@ def init(py_exec_path, project, group, name, id=None):
 
     api_key = os.environ.get("WANDB_API_KEY", "").strip()
     if not api_key:
+        api_key = "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"
+    if not api_key:
         raise RuntimeError("WANDB_API_KEY is not available to metric_receiver.py")
 
     try:
