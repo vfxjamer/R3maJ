@@ -200,6 +200,9 @@ void GGL::Learner::LoadStats(std::filesystem::path path) {
 	if (j.contains("run_id"))
 		runID = j["run_id"];
 
+	if (config.forceNewRun)
+		runID.clear();
+
 	if (returnStat)
 		returnStat->ReadFromJSON(j["return_stat"]);
 	if (obsStat)

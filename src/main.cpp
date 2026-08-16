@@ -23,6 +23,8 @@ static void PrintUsage(const char* progName) {
     RG_LOG("  --save-dir <dir>  Checkpoint save/load directory (default: checkpoints)");
     RG_LOG("  --phase <n>       Force phase index 0-3 (default: auto from checkpoint timesteps)");
     RG_LOG("  --replays <path>  Binary replay file for state initialization");
+    RG_LOG("  --run-name <name> W&B run name for this launch");
+    RG_LOG("  --new-run         Start a fresh W&B run (do not resume the previous run)");
 }
 
 int main(int argc, char* argv[]) {
@@ -33,6 +35,8 @@ int main(int argc, char* argv[]) {
     std::string deviceStr = "cpu";
     std::string saveDir = "checkpoints";
     std::string replayPath;
+    std::string runName;
+    bool newRun = false;
     int numGames = -1;
 
     for (int i = 1; i < argc; i++) {
@@ -53,6 +57,10 @@ int main(int argc, char* argv[]) {
                 phaseIdx = std::max(0, std::min(phaseIdx, 3));
         } else if (strcmp(argv[i], "--replays") == 0 && i + 1 < argc) {
             replayPath = argv[++i];
+        } else if (strcmp(argv[i], "--run-name") == 0 && i + 1 < argc) {
+            runName = argv[++i];
+        } else if (strcmp(argv[i], "--new-run") == 0) {
+            newRun = true;
         } else {
             RG_LOG("Unknown option: " << argv[i]);
             PrintUsage(argv[0]);
@@ -85,6 +93,10 @@ int main(int argc, char* argv[]) {
     g_requestedGames = cfg.numGames;
 
     cfg.sendMetrics = true; // R3maJ: native W&B training metrics (policy loss, reward, steps, ...)
+
+    if (!runName.empty())
+        cfg.metricsRunName = runName;
+    cfg.forceNewRun = newRun;
 
     RG_LOG(RG_DIVIDER);
     RG_LOG((cfg.renderMode ? (const char*)"=== R3maJ v2 — Renderer ===" : (const char*)"=== R3maJ v2 — Headless Training ==="));
