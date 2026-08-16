@@ -32,7 +32,12 @@ def init(py_exec_path, project, group, name, id=None):
         raise RuntimeError("WANDB_API_KEY is not available to metric_receiver.py")
 
     try:
-        wandb.login(key=api_key, relogin=True, _silent=True)
+        # Newer wandb SDKs removed the `_silent` kwarg from login(); fall back
+        # gracefully instead of hard-failing auth.
+        try:
+            wandb.login(key=api_key, relogin=True, _silent=True)
+        except TypeError:
+            wandb.login(key=api_key, relogin=True)
     except Exception as e:
         raise RuntimeError(f"W&B authentication failed in metric_receiver.py: {e}")
 
