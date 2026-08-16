@@ -98,7 +98,7 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     // ============================================================
     std::vector<WeightedReward> components;
     components.reserve(7);
-    components.emplace_back(new SimpleTouchReward(), 25.f);
+    components.emplace_back(new SimpleTouchReward(), 50.f);
     components.emplace_back(new GoalReward(-1.f), 50.f);
     components.emplace_back(new NectoTouchAccelReward(), 10.f);
     components.emplace_back(new RLGC::VelocityBallToGoalReward(), 10.f);
