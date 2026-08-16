@@ -99,7 +99,7 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
     static const int64_t SCALED_MINI_BATCH[4]={10'000,20'000,30'000,40'000};
     const int64_t batch=SCALED_BATCH[RS_CLAMP(phaseIdx,0,3)];
     const int64_t miniBatch=SCALED_MINI_BATCH[RS_CLAMP(phaseIdx,0,3)];
-    cfg.numGames=96;
+    cfg.numGames=192;
     cfg.tickSkip=8;
     cfg.actionDelay=2;
     cfg.deviceType=GGL::LearnerDeviceType::CPU;
