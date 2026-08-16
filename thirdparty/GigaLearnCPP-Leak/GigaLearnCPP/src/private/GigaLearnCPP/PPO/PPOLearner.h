@@ -11,7 +11,6 @@
 #include <torch/nn/modules/loss.h>
 #include <torch/nn/modules/container/sequential.h>
 
-#include <mutex>
 #include "ExperienceBuffer.h"
 
 namespace GGL {
@@ -21,10 +20,6 @@ namespace GGL {
 	public:
 		ModelSet models = {};
 		ModelSet guidingPolicyModels = {};
-		ModelSet inferModels = {};      // weight-synced mirror on the second CUDA device (if any)
-		bool useInferGPU = false;
-		torch::Device inferDevice;       // defaults to `device` on single-GPU machines
-		std::mutex inferMutex;
 
 		PPOLearnerConfig config;
 		torch::Device device;
@@ -44,11 +39,7 @@ namespace GGL {
 		
 		// If models is null, this->models will be used
 		void InferActions(torch::Tensor obs, torch::Tensor actionMasks, torch::Tensor* outActions, torch::Tensor* outLogProbs, ModelSet* models = NULL);
-		// eval=true runs the critic on the second GPU (if configured) without autograd;
-		// the training-path call must keep eval=false so gradients reach `models`
-		torch::Tensor InferCritic(torch::Tensor obs, bool eval = false);
-
-		void SyncInferModels();
+		torch::Tensor InferCritic(torch::Tensor obs);
 
 		// Perhaps they should be somewhere else? Should probably make an inference interface...
 		static torch::Tensor InferPolicyProbsFromModels(

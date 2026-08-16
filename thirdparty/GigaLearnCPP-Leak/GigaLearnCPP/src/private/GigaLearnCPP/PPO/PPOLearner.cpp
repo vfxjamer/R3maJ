@@ -3,7 +3,6 @@
 #include <torch/nn/utils/convert_parameters.h>
 #include <torch/nn/utils/clip_grad.h>
 #include <torch/csrc/api/include/torch/serialize.h>
-#include <torch/cuda.h>
 #include <public/GigaLearnCPP/Util/AvgTracker.h>
 
 using namespace torch;
@@ -17,17 +16,6 @@ GGL::PPOLearner::PPOLearner(int obsSize, int numActions, PPOLearnerConfig _confi
 		RG_ERR_CLOSE("PPOLearner: config.batchSize (" << config.batchSize << ") must be a multiple of config.miniBatchSize (" << config.miniBatchSize << ")");
 
 	MakeModels(true, obsSize, numActions, config.sharedHead, config.policy, config.critic, device, models);
-
-	// Dual-GPU setup: mirror the models on the second CUDA device so collection-time
-	// inference runs there while PPO updates stay on the primary device
-	inferDevice = device;
-	if (device.is_cuda() && torch::cuda::device_count() >= 2) {
-		inferDevice = Device(torch::kCUDA, 1);
-		MakeModels(true, obsSize, numActions, config.sharedHead, config.policy, config.critic, inferDevice, inferModels);
-		SyncInferModels();
-		useInferGPU = true;
-		RG_LOG("PPOLearner: inference will run on " << inferDevice << "; PPO updates stay on " << device);
-	}
 
 	SetLearningRates(config.policyLR, config.criticLR);
 
@@ -125,47 +113,16 @@ void GGL::PPOLearner::InferActionsFromModels(
 	}
 }
 
-void GGL::PPOLearner::SyncInferModels() {
-	if (inferModels.map.empty())
-		return;
-
-	for (auto& kv : models.map) {
-		Model* dst = inferModels[kv.first];
-		if (!dst)
-			continue;
-
-		auto srcParams = kv.second->parameters();
-		auto dstParams = dst->parameters();
-		for (int i = 0; i < (int)srcParams.size(); i++)
-			dstParams[i].copy_(srcParams[i], /*non_blocking*/ true);
-	}
-}
-
 void GGL::PPOLearner::InferActions(torch::Tensor obs, torch::Tensor actionMasks, torch::Tensor* outActions, torch::Tensor* outLogProbs, ModelSet* models) {
-	if (useInferGPU && !models) {
-		std::lock_guard<std::mutex> lock(inferMutex);
-		SyncInferModels();
-		InferActionsFromModels(inferModels, obs.to(inferDevice, true), actionMasks.to(inferDevice, true), config.deterministic, config.policyTemperature, config.useHalfPrecision, outActions, outLogProbs);
-		return;
-	}
-
 	InferActionsFromModels(models ? *models : this->models, obs, actionMasks, config.deterministic, config.policyTemperature, config.useHalfPrecision, outActions, outLogProbs);
 }
 
-torch::Tensor GGL::PPOLearner::InferCritic(torch::Tensor obs, bool eval) {
-	ModelSet* usedModels = &models;
+torch::Tensor GGL::PPOLearner::InferCritic(torch::Tensor obs) {
 
-	if (eval && useInferGPU) {
-		std::lock_guard<std::mutex> lock(inferMutex);
-		SyncInferModels();
-		obs = obs.to(inferDevice, true);
-		usedModels = &inferModels;
-	}
+	if (models["shared_head"])
+		obs = models["shared_head"]->Forward(obs, config.useHalfPrecision);
 
-	if ((*usedModels)["shared_head"])
-		obs = (*usedModels)["shared_head"]->Forward(obs, config.useHalfPrecision);
-
-	return (*usedModels)["critic"]->Forward(obs, config.useHalfPrecision).flatten();
+	return models["critic"]->Forward(obs, config.useHalfPrecision).flatten();
 }
 
 torch::Tensor ComputeEntropy(torch::Tensor probs, torch::Tensor actionMasks, bool maskEntropy) {
