@@ -217,51 +217,9 @@ R3maJStateSetter::Mode R3maJStateSetter::_pickMode() const {
 void R3maJStateSetter::ResetArena(Arena* arena) {
 	arena->ResetToRandomKickoff();
 
-	// 70% replay, 30% procedural
-	bool useReplay =
-		_sharedReplayFrames &&
-		!_sharedReplayFrames->empty() &&
-		RandFloat() < 0.70f;
-
-	if (useReplay) {
-		int idx = _SampleReplayFrame();
-
-		if (idx >= 0) {
-			_SetFromReplay(
-				arena,
-				(*_sharedReplayFrames)[idx]
-			);
-
-			return;
-		}
-	}
-
-	Mode mode = _pickMode();
-
-	switch (mode) {
-	case Mode::KICKOFF:
-		return;
-
-	case Mode::GROUND_PLAY:
-		SetGroundPlay(arena);
-		return;
-
-	case Mode::GOALIE_PRACTICE:
-		SetGoaliePractice(arena);
-		return;
-
-	case Mode::AERIAL_PRACTICE:
-		SetAerialPractice(arena);
-		return;
-
-	case Mode::WALL_PLAY:
-		SetWallPlay(arena);
-		return;
-
-	case Mode::DRIBBLE_PRACTICE:
-		SetDribblePractice(arena);
-		return;
-	}
+	// R3maJ: regular-game rule. Every episode starts like a real Rocket
+	// League match (ball at centre, cars at kickoff spots). No replay
+	// frame injection and no procedural practice spawns.
 }
 
 
