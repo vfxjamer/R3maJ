@@ -62,7 +62,7 @@ PhaseManager::PhaseManager() {
     phase3Rewards.cradle_w=MECH_TARGET_CRADLE;
     phase3Rewards.ang_vel_w=MECH_TARGET_ANG_VEL;
 
-    _phases[0] = {0,PHASE_0_END,0.990f,0.05f,2e-4f,2e-4f,phase0Rewards};
+    _phases[0] = {0,PHASE_0_END,0.993f,0.05f,2e-4f,2e-4f,phase0Rewards};
     _phases[1] = {PHASE_0_END,PHASE_1_END,0.993f,0.03f,1e-4f,1e-4f,phase1Rewards};
     _phases[2] = {PHASE_1_END,PHASE_2_END,0.995f,0.02f,1e-4f,1e-4f,phase2Rewards};
     _phases[3] = {PHASE_2_END,PHASE_3_END,0.998f,0.01f,1e-4f,1e-4f,phase3Rewards};
