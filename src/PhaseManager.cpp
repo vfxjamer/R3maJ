@@ -120,7 +120,7 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
     ppo.tsPerItr=batch;
     ppo.batchSize=batch;
     ppo.miniBatchSize=miniBatch;
-    ppo.epochs=3; // R3maJ: guide recommends 2-3
+    ppo.epochs=5; // R3maJ: user-set 5 (was 3)
     ppo.gaeLambda=0.95f;
     ppo.gaeGamma=p.gamma;
     ppo.entropyScale=p.entropyScale;
