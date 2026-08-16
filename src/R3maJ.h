@@ -11,7 +11,6 @@
 #include <RLGymCPP/ActionParsers/DefaultAction.h>
 #include <RLGymCPP/Rewards/CommonRewards.h>
 #include <RLGymCPP/TerminalConditions/GoalScoreCondition.h>
-#include <RLGymCPP/TerminalConditions/NoTouchCondition.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -73,6 +72,28 @@ public:
     }
 };
 
+// Real Rocket League match clock: an episode ends only when a full 5-minute
+// game elapses (or a goal is scored — see GoalScoreCondition). Quiet stretches
+// of no-touch play are NOT cut short; the game plays out like a real match.
+class FullGameCondition final : public TerminalCondition {
+public:
+    static constexpr uint64_t TICKS_PER_SECOND = 120;
+    static constexpr uint64_t MATCH_SECONDS = 300;
+    uint64_t _startTick = 0;
+
+    void Reset(const GameState& initialState) override {
+        _startTick = initialState.lastTickCount;
+    }
+
+    bool IsTerminal(const GameState& currentState) override {
+        return currentState.lastTickCount - _startTick >= TICKS_PER_SECOND * MATCH_SECONDS;
+    }
+
+    bool IsTruncation() override {
+        return false;
+    }
+};
+
 inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     Arena* arena = Arena::Create(GameMode::SOCCAR);
     arena->AddCar(Team::BLUE, CAR_CONFIG_OCTANE);
@@ -113,7 +134,7 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
 
     std::vector<TerminalCondition*> terminals = {
         new GoalScoreCondition(),
-        new NoTouchCondition(10)
+        new FullGameCondition()
     };
 
     auto* obsBuilder = new R3maJOBS(120.f);
