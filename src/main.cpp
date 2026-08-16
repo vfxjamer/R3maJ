@@ -106,34 +106,13 @@ int main(int argc, char* argv[]) {
     RG_LOG("  Checkpoints: " << cfg.checkpointFolder);
     RG_LOG("  Replay source: " << (g_replayPath.empty() ? "default state setter" : g_replayPath));
 
-    if (phaseIdx == 0) {
-        RG_LOG("  Rewards: GUIDE EARLY-STAGE STACK");
-        RG_LOG("    touch=50 (SimpleTouchReward / EventReward touch=1)");
-        RG_LOG("    speed_toward_ball=5");
-        RG_LOG("    face_ball=1");
-        RG_LOG("    air=0.15");
-        RG_LOG("    goal/scoring rewards=DISABLED");
-        RG_LOG("    ground_idle=DISABLED");
-    } else {
-        RG_LOG("  Rewards: goal=" << g_rewards.goal_w
-            << " winprob=" << g_rewards.win_prob_w
-            << " goaldist=" << g_rewards.goal_dist_w
-            << " speedbonus=" << g_rewards.goal_speed_bonus_w
-            << " goaldistbonus=" << g_rewards.goal_dist_bonus_w
-            << " touchheight=" << g_rewards.touch_height_w
-            << " touchaccel=" << g_rewards.touch_accel_w
-            << " boostgain=" << g_rewards.boost_gain_w
-            << " boostlose=" << g_rewards.boost_lose_w
-            << " demo=" << g_rewards.demo_w
-            << " flipreset=" << g_rewards.flip_reset_w
-            << " jumptouch=" << g_rewards.jump_touch_w
-            << " walltouch=" << g_rewards.wall_touch_w
-            << " airdribble=" << g_rewards.air_dribble_w
-            << " cradle=" << g_rewards.cradle_w
-            << " angvel=" << g_rewards.ang_vel_w
-            << " groundidle=" << g_rewards.touch_grass_w
-            << " opppunish=" << g_rewards.opponent_punish_w);
-    }
+    RG_LOG("  Rewards: GUIDE STAGE-1 STACK (active in EnvCreateFunc)");
+    RG_LOG("    touch=50 (SimpleTouchReward / EventReward touch=1)");
+    RG_LOG("    speed_toward_ball=5");
+    RG_LOG("    face_ball=1");
+    RG_LOG("    air=0.15");
+    RG_LOG("    goal/scoring rewards=DISABLED");
+    RG_LOG("    opponent punish (zero-sum)=OFF (guide-exact stage 1)");
 
     Learner* learner = new Learner(EnvCreateFunc, cfg, StepCallback);
     g_learner = learner;
