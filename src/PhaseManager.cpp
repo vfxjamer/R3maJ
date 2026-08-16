@@ -34,7 +34,7 @@ PhaseManager::PhaseManager() {
         .boost_gain_w=0.f,.boost_lose_w=0.f,.ang_vel_w=0.f,.touch_grass_w=0.f,
         .goal_w=0.f,.win_prob_w=0.f,.goal_dist_w=0.f,.goal_speed_bonus_w=0.f,
         .touch_height_w=0.f,.touch_accel_w=0.f,.flip_reset_w=0.f,.demo_w=0.f,
-        .opponent_punish_w=0.f,.goal_dist_bonus_w=0.f,.dist_w=0.f,.align_w=0.f,
+        .opponent_punish_w=1.f,.goal_dist_bonus_w=0.f,.dist_w=0.f,.align_w=0.f,
         .jump_touch_w=0.f,.wall_touch_w=0.f,.air_dribble_w=0.f,.cradle_w=0.f,
     };
 
@@ -42,7 +42,7 @@ PhaseManager::PhaseManager() {
         .boost_gain_w=0.f,.boost_lose_w=0.f,.ang_vel_w=0.f,.touch_grass_w=0.f,
         .goal_w=0.f,.win_prob_w=0.f,.goal_dist_w=0.f,.goal_speed_bonus_w=0.f,
         .touch_height_w=0.f,.touch_accel_w=0.f,.flip_reset_w=0.f,.demo_w=0.f,
-        .opponent_punish_w=0.f,.goal_dist_bonus_w=0.f,.dist_w=0.f,.align_w=0.f,
+        .opponent_punish_w=1.f,.goal_dist_bonus_w=0.f,.dist_w=0.f,.align_w=0.f,
         .jump_touch_w=0.f,.wall_touch_w=0.f,.air_dribble_w=0.f,.cradle_w=0.f,
     };
 

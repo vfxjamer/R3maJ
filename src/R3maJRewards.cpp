@@ -400,24 +400,8 @@ void AllRewardsWrapper::PreStep(const GameState& state) {
 
 float AllRewardsWrapper::GetReward(const Player& player, const GameState& state, bool isFinal) {
 	float total = 0;
-	_accComponents.resize(_rewards.size(), 0.0);
-	for (size_t i = 0; i < _rewards.size(); i++) {
-		float comp = _rewards[i].reward->GetReward(player, state, isFinal) * _rewards[i].weight;
-		total += comp;
-		if (player.team == Team::BLUE)
-			_accComponents[i] += comp;
-	}
-
-	if (player.team == Team::BLUE) {
-		_accSteps++;
-		if (state.goalScored) {
-			bool playerScored = (player.team != RS_TEAM_FROM_Y(state.ball.pos.y));
-			if (playerScored)
-				_accGoalsFor++;
-			else
-				_accGoalsConceded++;
-		}
-	}
+	for (auto& wr : _rewards)
+		total += wr.reward->GetReward(player, state, isFinal) * wr.weight;
 	return total;
 }
 
@@ -436,12 +420,31 @@ AllRewardsWrapper::WrapperMetrics AllRewardsWrapper::PopMetrics() {
 
 std::vector<float> AllRewardsWrapper::GetAllRewards(const GameState& state, bool isFinal) {
 	std::vector<float> rewards(state.players.size(), 0);
+	_accComponents.resize(_rewards.size(), 0.0);
 
 	// Sum all sub-rewards
-	for (auto& wr : _rewards) {
-		auto output = wr.reward->GetAllRewards(state, isFinal);
-		for (int i = 0; i < (int)state.players.size(); i++)
-			rewards[i] += output[i] * wr.weight;
+	for (size_t ri = 0; ri < _rewards.size(); ri++) {
+		auto output = _rewards[ri].reward->GetAllRewards(state, isFinal);
+		for (int i = 0; i < (int)state.players.size(); i++) {
+			float comp = output[i] * _rewards[ri].weight;
+			rewards[i] += comp;
+			if (state.players[i].team == Team::BLUE)
+				_accComponents[ri] += comp;
+		}
+	}
+
+	// Track blue-team stats for per-iteration metrics
+	for (int i = 0; i < (int)state.players.size(); i++) {
+		if (state.players[i].team != Team::BLUE)
+			continue;
+		_accSteps++;
+		if (state.goalScored) {
+			bool playerScored = (state.players[i].team != RS_TEAM_FROM_Y(state.ball.pos.y));
+			if (playerScored)
+				_accGoalsFor++;
+			else
+				_accGoalsConceded++;
+		}
 	}
 
 	// Apply opponent punish
