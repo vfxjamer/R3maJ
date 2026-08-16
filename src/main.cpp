@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <string>
 
 using namespace RocketSim;
@@ -72,6 +73,17 @@ int main(int argc, char* argv[]) {
 
     std::string checkpointFolder = !resumeDir.empty() ? resumeDir : saveDir;
     g_totalTimesteps = ReadCheckpointTotalTimesteps(checkpointFolder);
+
+    // W&B run policy: the first launch against a checkpoint folder starts a
+    // FRESH run (one time only). Every later launch resumes that same run,
+    // so crashes/supervisor restarts never spawn duplicate dashboards.
+    // Delete <folder>/.wandb_fresh_done or pass --new-run to force another.
+    std::string freshMarker = checkpointFolder + "/.wandb_fresh_done";
+    if (!newRun && !std::filesystem::exists(freshMarker)) {
+        newRun = true;
+        std::ofstream marker(freshMarker);
+        marker << "fresh W&B run started" << std::endl;
+    }
 
     if (phaseIdx == -1)
         phaseIdx = g_PhaseManager.GetCurrentPhase(g_totalTimesteps);
