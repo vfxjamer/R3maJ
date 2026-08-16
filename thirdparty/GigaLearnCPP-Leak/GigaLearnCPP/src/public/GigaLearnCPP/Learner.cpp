@@ -942,16 +942,17 @@ if (render) {
 				if (metricSender)
 					metricSender->Send(report);
 
-				report.Display(
-					{
-						"Average Step Reward",
-						"Policy Entropy",
-						"KL Div Loss",
-						"First Accuracy",
-						"",
-						"Policy Update Magnitude",
-						"Critic Update Magnitude",
-						"Shared Head Update Magnitude",
+report.Display(
+				{
+					"Average Step Reward",
+					"Policy Entropy",
+					"Critic Loss",
+					"SB3 Clip Fraction",
+					"Mean KL Divergence",
+					"",
+					"Policy Update Magnitude",
+					"Critic Update Magnitude",
+					"Shared Head Update Magnitude",
 						"",
 						"Collection Steps/Second",
 						"Consumption Steps/Second",
