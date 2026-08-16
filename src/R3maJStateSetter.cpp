@@ -1,4 +1,5 @@
 #include "R3maJStateSetter.h"
+#include "PhaseManager.h"
 #include <RLGymCPP/Math.h>
 #include <RLGymCPP/CommonValues.h>
 #include <fstream>
@@ -215,11 +216,30 @@ R3maJStateSetter::Mode R3maJStateSetter::_pickMode() const {
 
 
 void R3maJStateSetter::ResetArena(Arena* arena) {
-	arena->ResetToRandomKickoff();
+	// Until REPLAY_STATE_START (15B steps): every episode starts like a real
+	// Rocket League match — ball at centre, cars at kickoff spots.
+	if (g_trainingTimesteps < REPLAY_STATE_START) {
+		arena->ResetToRandomKickoff();
+		return;
+	}
 
-	// R3maJ: regular-game rule. Every episode starts like a real Rocket
-	// League match (ball at centre, cars at kickoff spots). No replay
-	// frame injection and no procedural practice spawns.
+	// Beyond 15B steps: start from real-match replay frames (recovery /
+	// mid-game scenarios) or procedural play states half the time, and a
+	// fresh kickoff the rest.
+	if (_sharedReplayFrames && !_sharedReplayFrames->empty() && RandFloat(0, 1) < 0.5f) {
+		int idx = _SampleReplayFrame();
+		_SetFromReplay(arena, (*_sharedReplayFrames)[idx]);
+		return;
+	}
+
+	switch (_pickMode()) {
+		case Mode::KICKOFF:           arena->ResetToRandomKickoff(); break;
+		case Mode::GROUND_PLAY:       SetGroundPlay(arena); break;
+		case Mode::GOALIE_PRACTICE:   SetGoaliePractice(arena); break;
+		case Mode::AERIAL_PRACTICE:   SetAerialPractice(arena); break;
+		case Mode::WALL_PLAY:         SetWallPlay(arena); break;
+		case Mode::DRIBBLE_PRACTICE:  SetDribblePractice(arena); break;
+	}
 }
 
 

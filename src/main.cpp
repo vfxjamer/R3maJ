@@ -139,6 +139,7 @@ int main(int argc, char* argv[]) {
     g_learner = learner;
 
     learner->iterationCallback = [](GGL::Report& report) {
+        g_trainingTimesteps = (int64_t)report["Total Timesteps"];
         AddR3maJMetrics(report, g_activeRewardsWrapper, g_PhaseManager);
     };
 

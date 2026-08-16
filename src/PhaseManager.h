@@ -3,6 +3,13 @@
 #include <vector>
 #include <GigaLearnCPP/LearnerConfig.h>
 
+// Timestep after which training episodes may start from real-world replay
+// frames or procedural play states instead of a fresh kickoff.
+static constexpr int64_t REPLAY_STATE_START = 15'000'000'000;
+
+// Updated every training iteration by main.cpp; consumed by the state setter.
+inline int64_t g_trainingTimesteps = 0;
+
 struct PhaseRewards {
 	float boost_gain_w;
 	float boost_lose_w;
