@@ -10,6 +10,8 @@ namespace GGL {
 
 	typedef std::function<void(class Learner*, const std::vector<RLGC::GameState>& states, Report& report)> StepCallbackFn;
 
+	typedef std::function<void(Report& report)> IterationCallbackFn;
+
 	// https://github.com/AechPro/rlgym-ppo/blob/main/rlgym_ppo/learner.py
 	class RG_IMEXPORT Learner {
 	public:
@@ -37,6 +39,7 @@ namespace GGL {
 			totalIterations = 0;
 
 		StepCallbackFn stepCallback = NULL;
+		IterationCallbackFn iterationCallback = NULL;
 
 		Learner(RLGC::EnvCreateFn envCreateFunc, LearnerConfig config, StepCallbackFn stepCallback = NULL);
 		void Start();

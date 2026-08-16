@@ -400,9 +400,38 @@ void AllRewardsWrapper::PreStep(const GameState& state) {
 
 float AllRewardsWrapper::GetReward(const Player& player, const GameState& state, bool isFinal) {
 	float total = 0;
-	for (auto& wr : _rewards)
-		total += wr.reward->GetReward(player, state, isFinal) * wr.weight;
+	_accComponents.resize(_rewards.size(), 0.0);
+	for (size_t i = 0; i < _rewards.size(); i++) {
+		float comp = _rewards[i].reward->GetReward(player, state, isFinal) * _rewards[i].weight;
+		total += comp;
+		if (player.team == Team::BLUE)
+			_accComponents[i] += comp;
+	}
+
+	if (player.team == Team::BLUE) {
+		_accSteps++;
+		if (state.goalScored) {
+			bool playerScored = (player.team != RS_TEAM_FROM_Y(state.ball.pos.y));
+			if (playerScored)
+				_accGoalsFor++;
+			else
+				_accGoalsConceded++;
+		}
+	}
 	return total;
+}
+
+AllRewardsWrapper::WrapperMetrics AllRewardsWrapper::PopMetrics() {
+	WrapperMetrics m;
+	m.components = _accComponents;
+	m.steps = _accSteps;
+	m.goalsFor = _accGoalsFor;
+	m.goalsConceded = _accGoalsConceded;
+	_accComponents.assign(_accComponents.size(), 0.0);
+	_accSteps = 0;
+	_accGoalsFor = 0;
+	_accGoalsConceded = 0;
+	return m;
 }
 
 std::vector<float> AllRewardsWrapper::GetAllRewards(const GameState& state, bool isFinal) {

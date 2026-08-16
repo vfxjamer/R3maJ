@@ -27,6 +27,7 @@ using RewardConfig = PhaseRewards;
 
 inline RewardConfig g_rewards{};
 inline std::string g_replayPath;
+inline AllRewardsWrapper* g_activeRewardsWrapper = nullptr; // set by EnvCreateFunc
 
 inline void SetupSignalHandlers() {
     // GigaLearn owns the training lifecycle. Keeping this hook explicit makes
@@ -107,6 +108,7 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     // R3maJ: scoring curriculum + hit-the-ball-hard (NectoTouchAccel x10)
 
     auto* combined = new AllRewardsWrapper(components, 0.f);
+    g_activeRewardsWrapper = combined;
     std::vector<WeightedReward> rewards = { WeightedReward(combined, 1.f) };
 
     std::vector<TerminalCondition*> terminals = {

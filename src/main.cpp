@@ -1,5 +1,6 @@
 #include "R3maJ.h"
 #include "PhaseManager.h"
+#include "R3maJMetrics.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -136,6 +137,10 @@ int main(int argc, char* argv[]) {
 
     Learner* learner = new Learner(EnvCreateFunc, cfg, StepCallback);
     g_learner = learner;
+
+    learner->iterationCallback = [](GGL::Report& report) {
+        AddR3maJMetrics(report, g_activeRewardsWrapper, g_PhaseManager);
+    };
 
     RG_LOG("  Actions: " << learner->numActions);
     RG_LOG("  Obs Size: " << learner->obsSize);

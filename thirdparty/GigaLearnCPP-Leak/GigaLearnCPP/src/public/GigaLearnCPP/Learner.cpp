@@ -448,10 +448,25 @@ void GGL::Learner::StartTransferLearn(const TransferLearnConfig& tlConfig) {
 					"Old Policy Entropy",
 					"Policy Update Magnitude",
 					"",
-					"Collected Timesteps",
+"Collected Timesteps",
 					"Total Timesteps",
-					"Total Iterations"
-				}
+					"Total Iterations",
+					"",
+					"Reward/touch",
+					"Reward/goal",
+					"Reward/accel",
+					"Reward/vtg",
+					"Reward/speed",
+					"Reward/face",
+					"Reward/air",
+					"",
+					"Goals For / 100 games",
+					"Goals Conceded / 100 games",
+					"Net Goals / 100 games",
+					"",
+					"Phase",
+					"Phase Progress %"
+					}
 			);
 		}
 
@@ -902,6 +917,9 @@ if (render) {
 				report["Total Timesteps"] = totalTimesteps;
 				totalIterations++;
 				report["Total Iterations"] = totalIterations;
+
+				if (iterationCallback)
+					iterationCallback(report);
 
 				if (versionMgr)
 					versionMgr->OnIteration(ppo, report, totalTimesteps, prevTimesteps);

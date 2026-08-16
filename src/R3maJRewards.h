@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <unordered_map>
 #include <vector>
 #include <RLGymCPP/Rewards/CommonRewards.h>
@@ -178,11 +179,27 @@ public:
 class AllRewardsWrapper : public Reward {
     std::vector<WeightedReward> _rewards;
     float _opponentPunishW;
+
+    std::vector<double> _accComponents;
+    int64_t _accSteps = 0;
+    double _accGoalsFor = 0;
+    double _accGoalsConceded = 0;
 public:
+    struct WrapperMetrics {
+        std::vector<double> components;
+        int64_t steps = 0;
+        double goalsFor = 0;
+        double goalsConceded = 0;
+    };
+
     AllRewardsWrapper(const std::vector<WeightedReward>& rewards, float opponentPunishW);
     virtual ~AllRewardsWrapper();
     virtual void Reset(const GameState& initialState) override;
     virtual void PreStep(const GameState& state) override;
     virtual float GetReward(const Player& player, const GameState& state, bool isFinal) override;
     virtual std::vector<float> GetAllRewards(const GameState& state, bool isFinal) override;
+
+    // Returns per-component step-reward sums and goal events for the blue
+    // (trainable) team since the last call, then resets the accumulators.
+    WrapperMetrics PopMetrics();
 };
