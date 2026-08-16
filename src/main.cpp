@@ -136,7 +136,11 @@ int main(int argc, char* argv[]) {
     RG_LOG("    face_ball=1");
     RG_LOG("    air=0.15");
     RG_LOG("    goal/scoring rewards=DISABLED");
-    RG_LOG("    opponent punish (zero-sum)=OFF (guide-exact stage 1)");
+    if (g_rewards.opponent_punish_w != 0.f) {
+        RG_LOG("    opponent punish (zero-sum)=ON at weight " << g_rewards.opponent_punish_w);
+    } else {
+        RG_LOG("    opponent punish (zero-sum)=OFF");
+    }
 
     Learner* learner = new Learner(EnvCreateFunc, cfg, StepCallback);
     g_learner = learner;

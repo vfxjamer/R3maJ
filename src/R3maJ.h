@@ -99,7 +99,7 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     components.emplace_back(new FaceBallReward(), 1.f);
     components.emplace_back(new GuideAirReward(), 0.15f);
 
-    auto* combined = new AllRewardsWrapper(components, 0.f);
+    auto* combined = new AllRewardsWrapper(components, g_rewards.opponent_punish_w);
     g_activeRewardsWrapper = combined;
     std::vector<WeightedReward> rewards = { WeightedReward(combined, 1.f) };
 
