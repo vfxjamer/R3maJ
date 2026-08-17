@@ -95,9 +95,9 @@ inline EnvCreateResult EnvCreateFunc(int /*index*/) {
     std::vector<WeightedReward> components;
     components.reserve(4);
     components.emplace_back(new SimpleTouchReward(), 60.f);
-    components.emplace_back(new SpeedTowardBallReward(), 10.f);
-    components.emplace_back(new FaceBallReward(), 5.f);
-    components.emplace_back(new GuideAirReward(), 0.30f);
+    components.emplace_back(new SpeedTowardBallReward(), 15.f);
+    components.emplace_back(new FaceBallReward(), 10.f);
+    components.emplace_back(new GuideAirReward(), 0.15f);
 
     auto* combined = new AllRewardsWrapper(components, g_rewards.opponent_punish_w);
     g_activeRewardsWrapper = combined;
