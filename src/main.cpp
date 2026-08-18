@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
     }
     RG_LOG("  Epochs: " << cfg.ppo.epochs);
     RG_LOG("  LR: " << cfg.ppo.policyLR);
-    RG_LOG("  Gamma: " << phaseCfg.gamma);
+    RG_LOG("  Gamma: " << cfg.ppo.gaeGamma);
     RG_LOG("  Entropy: " << phaseCfg.entropyScale);
     RG_LOG("  MiniBatch: " << cfg.ppo.miniBatchSize);
     RG_LOG("  W&B native metrics: ENABLED");

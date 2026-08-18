@@ -99,6 +99,16 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx, bool smallModel
     static const int64_t SCALED_MINI_BATCH[4]={10'000,20'000,30'000,40'000};
     const int64_t batch=SCALED_BATCH[RS_CLAMP(phaseIdx,0,3)];
     const int64_t miniBatch=SCALED_MINI_BATCH[RS_CLAMP(phaseIdx,0,3)];
+    float gamma = p.gamma;
+    float policyLR = p.policyLR;
+    float criticLR = p.criticLR;
+    if (smallModel) {
+        // carnage profile: fixed 2e-4 LR in all phases; gamma ladder 0.99 -> 0.993 -> 0.995 -> 0.998
+        static const float CARNAGE_GAMMA[4] = {0.99f, 0.993f, 0.995f, 0.998f};
+        gamma = CARNAGE_GAMMA[RS_CLAMP(phaseIdx, 0, 3)];
+        policyLR = 2e-4f;
+        criticLR = 2e-4f;
+    }
     cfg.numGames=smallModel ? 92 : 192;
     cfg.tickSkip=8;
     cfg.actionDelay=2;
@@ -122,10 +132,10 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx, bool smallModel
     ppo.miniBatchSize=miniBatch;
     ppo.epochs=5; // R3maJ: user-set 5 (was 3)
     ppo.gaeLambda=0.95f;
-    ppo.gaeGamma=p.gamma;
+    ppo.gaeGamma=gamma;
     ppo.entropyScale=p.entropyScale;
-    ppo.policyLR=p.policyLR;
-    ppo.criticLR=p.criticLR;
+    ppo.policyLR=policyLR;
+    ppo.criticLR=criticLR;
     ppo.clipRange=0.2f;
     ppo.rewardClipRange=10;
     ppo.policyTemperature=1.f;
