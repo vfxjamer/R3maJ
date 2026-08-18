@@ -92,18 +92,18 @@ PhaseRewards PhaseManager::GetRewards(int64_t totalTimesteps) const {
     return r;
 }
 
-GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
+GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx, bool smallModel) const {
     const auto& p=_phases[phaseIdx];
     GGL::LearnerConfig cfg={};
     static const int64_t SCALED_BATCH[4]={50'000,150'000,300'000,400'000};
     static const int64_t SCALED_MINI_BATCH[4]={10'000,20'000,30'000,40'000};
     const int64_t batch=SCALED_BATCH[RS_CLAMP(phaseIdx,0,3)];
     const int64_t miniBatch=SCALED_MINI_BATCH[RS_CLAMP(phaseIdx,0,3)];
-    cfg.numGames=192;
+    cfg.numGames=smallModel ? 92 : 192;
     cfg.tickSkip=8;
     cfg.actionDelay=2;
     cfg.deviceType=GGL::LearnerDeviceType::CPU;
-    cfg.checkpointFolder="checkpoints";
+    cfg.checkpointFolder=smallModel ? "checkpoints_carnage" : "checkpoints";
     cfg.tsPerSave=5'000'000;
     cfg.checkpointsToKeep=8;
     cfg.standardizeObs=true;
@@ -112,7 +112,7 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
     cfg.sendMetrics=true;
     cfg.metricsProjectName="r3maj";
     cfg.metricsGroupName="phases";
-    cfg.metricsRunName="R3maJ p1 training";
+    cfg.metricsRunName=smallModel ? "carnage p1 training" : "R3maJ p1 training";
     cfg.randomSeed=-1;
     cfg.renderMode=false; // R3maJ repo: headless training (Colab/Kaggle). Local WatchPC build overrides to true.
 
@@ -131,17 +131,26 @@ GGL::LearnerConfig PhaseManager::MakeLearnerConfig(int phaseIdx) const {
     ppo.policyTemperature=1.f;
     ppo.maxEpisodeDuration=120;
 
-    ppo.sharedHead.layerSizes={512,512};
+    if (smallModel) {
+        // carnage profile: small 128x4 network for local PC training.
+        // Same gamma, entropy, LR, rewards, and obs/action space as the 512x6 build.
+        ppo.sharedHead.layerSizes={128,128};
+        ppo.policy.layerSizes={128,128,128,128};
+        ppo.critic.layerSizes={128,128,128,128};
+    } else {
+        ppo.sharedHead.layerSizes={512,512};
+        ppo.policy.layerSizes={512,512,512,512,512,512};
+        ppo.critic.layerSizes={512,512,512,512,512,512};
+    }
+
     ppo.sharedHead.addLayerNorm=true;
     ppo.sharedHead.activationType=GGL::ModelActivationType::RELU;
     ppo.sharedHead.optimType=GGL::ModelOptimType::ADAM;
 
-    ppo.policy.layerSizes={512,512,512,512,512,512};
     ppo.policy.addLayerNorm=true;
     ppo.policy.activationType=GGL::ModelActivationType::RELU;
     ppo.policy.optimType=GGL::ModelOptimType::ADAM;
 
-    ppo.critic.layerSizes={512,512,512,512,512,512};
     ppo.critic.addLayerNorm=true;
     ppo.critic.activationType=GGL::ModelActivationType::RELU;
     ppo.critic.optimType=GGL::ModelOptimType::ADAM;

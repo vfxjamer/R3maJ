@@ -54,7 +54,7 @@ public:
 	// gradual phase-3 mechanical ramp (mechanical rewards lerp 0 -> Necto target
 	// between 30B and 60B).
 	PhaseRewards GetRewards(int64_t totalTimesteps) const;
-	GGL::LearnerConfig MakeLearnerConfig(int phaseIdx) const;
+	GGL::LearnerConfig MakeLearnerConfig(int phaseIdx, bool smallModel = false) const;
 	int GetNumPhases() const { return 4; }
 
 private:

@@ -26,6 +26,7 @@ static void PrintUsage(const char* progName) {
     RG_LOG("  --replays <path>  Binary replay file for state initialization");
     RG_LOG("  --run-name <name> W&B run name for this launch");
     RG_LOG("  --new-run         Start a fresh W&B run (do not resume the previous run)");
+    RG_LOG("  --carnage         Small network training profile (128x4, 92 games, CPU-only, checkpoints_carnage)");
 }
 
 int main(int argc, char* argv[]) {
@@ -38,6 +39,7 @@ int main(int argc, char* argv[]) {
     std::string replayPath;
     std::string runName;
     bool newRun = false;
+    bool carnage = false;
     int numGames = -1;
 
     for (int i = 1; i < argc; i++) {
@@ -62,6 +64,8 @@ int main(int argc, char* argv[]) {
             runName = argv[++i];
         } else if (strcmp(argv[i], "--new-run") == 0) {
             newRun = true;
+        } else if (strcmp(argv[i], "--carnage") == 0) {
+            carnage = true;
         } else {
             RG_LOG("Unknown option: " << argv[i]);
             PrintUsage(argv[0]);
@@ -70,6 +74,9 @@ int main(int argc, char* argv[]) {
     }
 
     RocketSim::Init("collision_meshes");
+
+    if (carnage && resumeDir.empty())
+        saveDir = "checkpoints_carnage";
 
     std::string checkpointFolder = !resumeDir.empty() ? resumeDir : saveDir;
     g_totalTimesteps = ReadCheckpointTotalTimesteps(checkpointFolder);
@@ -92,7 +99,7 @@ int main(int argc, char* argv[]) {
     g_rewards = g_PhaseManager.GetRewards(g_totalTimesteps);
     g_replayPath = replayPath;
 
-    LearnerConfig cfg = g_PhaseManager.MakeLearnerConfig(phaseIdx);
+    LearnerConfig cfg = g_PhaseManager.MakeLearnerConfig(phaseIdx, carnage);
     cfg.checkpointFolder = checkpointFolder;
 
     if (deviceStr == "cuda")
@@ -111,7 +118,7 @@ int main(int argc, char* argv[]) {
     cfg.forceNewRun = newRun;
 
     RG_LOG(RG_DIVIDER);
-    RG_LOG((cfg.renderMode ? (const char*)"=== R3maJ v2 — Renderer ===" : (const char*)"=== R3maJ v2 — Headless Training ==="));
+    RG_LOG((cfg.renderMode ? (const char*)"=== R3maJ v2 — Renderer ===" : (carnage ? (const char*)"=== R3maJ v2 — Headless Training (CARNAGE profile) ===" : (const char*)"=== R3maJ v2 — Headless Training ===")));
     RG_LOG("  Timesteps at start: " << g_totalTimesteps);
     RG_LOG("  Phase: " << (phaseIdx + 1) << "/4");
     const auto& phaseCfg = g_PhaseManager.GetPhaseConfig(phaseIdx);
@@ -120,7 +127,10 @@ int main(int argc, char* argv[]) {
     RG_LOG("  Games: " << (cfg.renderMode ? 1 : cfg.numGames) << (cfg.renderMode ? " (render mode)" : ""));
     RG_LOG("  Tick Skip: " << cfg.tickSkip);
     RG_LOG("  Action Delay: " << cfg.actionDelay);
-    RG_LOG("  Network: shared 512x2 -> policy/critic 512x6");
+    if (carnage)
+        RG_LOG("  Network: shared 128x2 -> policy/critic 128x4");
+    else
+        RG_LOG("  Network: shared 512x2 -> policy/critic 512x6");
     RG_LOG("  Epochs: " << cfg.ppo.epochs);
     RG_LOG("  LR: " << cfg.ppo.policyLR);
     RG_LOG("  Gamma: " << phaseCfg.gamma);
