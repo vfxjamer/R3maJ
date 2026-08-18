@@ -127,10 +127,11 @@ int main(int argc, char* argv[]) {
     RG_LOG("  Games: " << (cfg.renderMode ? 1 : cfg.numGames) << (cfg.renderMode ? " (render mode)" : ""));
     RG_LOG("  Tick Skip: " << cfg.tickSkip);
     RG_LOG("  Action Delay: " << cfg.actionDelay);
-    if (carnage)
+    if (carnage) {
         RG_LOG("  Network: shared 128x2 -> policy/critic 128x4");
-    else
+    } else {
         RG_LOG("  Network: shared 512x2 -> policy/critic 512x6");
+    }
     RG_LOG("  Epochs: " << cfg.ppo.epochs);
     RG_LOG("  LR: " << cfg.ppo.policyLR);
     RG_LOG("  Gamma: " << phaseCfg.gamma);
