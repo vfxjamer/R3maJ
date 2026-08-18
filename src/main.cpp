@@ -142,10 +142,10 @@ int main(int argc, char* argv[]) {
     RG_LOG("  Replay source: " << (g_replayPath.empty() ? "default state setter" : g_replayPath));
 
     RG_LOG("  Rewards: GUIDE STAGE-1 STACK (active in EnvCreateFunc)");
-    RG_LOG("    touch=50 (SimpleTouchReward / EventReward touch=1)");
-    RG_LOG("    speed_toward_ball=5");
+    RG_LOG("    touch=55 (SimpleTouchReward / EventReward touch=1)");
+    RG_LOG("    speed_toward_ball=15");
     RG_LOG("    face_ball=1");
-    RG_LOG("    air=0.15");
+    RG_LOG("    air=0.25");
     RG_LOG("    goal/scoring rewards=DISABLED");
     if (g_rewards.opponent_punish_w != 0.f) {
         RG_LOG("    opponent punish (zero-sum)=ON at weight " << g_rewards.opponent_punish_w);
